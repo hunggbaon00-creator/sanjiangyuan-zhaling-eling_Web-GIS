@@ -1,0 +1,60 @@
+# Python virtual environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Streamlit and local runtime state
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# Local credentials and environment files
+.env
+.env.*
+*.key
+*.pem
+
+# Earth Engine / Google auth local files
+.config/
+credentials
+credentials.json
+token.json
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local proposal/reference documents that may contain personal information
+*.pdf
+*.doc
+*.docx
+
+# Large or generated geospatial outputs
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/README.md
+!data/processed/*.sample.csv
+*.tif
+*.tiff
+*.vrt
+*.ovr
+*.aux.xml
+*.mbtiles
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.qgz
+*.qgs
+
+# Temporary exports and logs
+exports/
+tmp/
+temp/
+*.log
