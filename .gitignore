@@ -58,3 +58,5 @@ exports/
 tmp/
 temp/
 *.log
+
+!data/processed/zhaling_eling_yearly_stats.csv

@@ -49,7 +49,7 @@ def yearly_feature(year: int) -> ee.Feature:
     composite = collection.median().clip(ROI)
     ndvi = composite.normalizedDifference(["B8", "B4"]).rename("NDVI")
     mndwi = composite.normalizedDifference(["B3", "B11"]).rename("MNDWI")
-    water = mndwi.gt(0).rename("water")
+    water = mndwi.gt(0.1).rename("water")
 
     ndvi_mean = ndvi.reduceRegion(
         reducer=ee.Reducer.mean(),
