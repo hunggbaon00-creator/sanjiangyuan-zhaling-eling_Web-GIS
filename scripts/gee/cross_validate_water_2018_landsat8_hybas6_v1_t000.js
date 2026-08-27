@@ -1,4 +1,4 @@
-// hybas6_v0 / t000：2018 年 Landsat 8 独立交叉验证
+// hybas6_v1 / t000：2018 年 Landsat 8 独立交叉验证
 //
 // Sentinel-2 与 Landsat 8 分别构建 2018 年 6—9 月中位数合成影像，
 // 使用相同的 MNDWI > 0 判定开阔水体，并在 Landsat 8 的 30 m 网格上
@@ -7,15 +7,15 @@
 
 var roiCollection = ee.FeatureCollection(
   'projects/careful-form-499402-d0/assets/' +
-  'zhaling_eling_watershed_hybas6_v0'
+  'zhaling_eling_watershed_hybas6_v1'
 );
-var roi = roiCollection.geometry();
+var roi = roiCollection.geometry().dissolve(1);
 
 var validationYear = 2018;
 var waterThreshold = 0.0;
 var comparisonScale = 30;
 var exportName =
-  'water_cross_validation_2018_s2_l8_hybas6_v0_t000_metrics_v1';
+  'water_cross_validation_2018_s2_l8_hybas6_v1_t000_metrics_v1';
 
 var start = ee.Date.fromYMD(validationYear, 6, 1);
 var end = ee.Date.fromYMD(validationYear, 10, 1);
@@ -337,7 +337,7 @@ var validationResult = ee.Feature(null, {
   l8_covered_by_s2: safeDivide(intersectionArea, l8WaterArea),
   area_difference_l8_minus_s2_km2:
     l8WaterArea.subtract(s2WaterArea),
-  roi_version: 'hybas6_v0',
+  roi_version: 'hybas6_v1',
   comparison_scale_m: comparisonScale
 });
 
@@ -466,7 +466,7 @@ Map.addLayer(
     width: 2
   }),
   {},
-  'hybas6_v0 研究区边界',
+  'hybas6_v1 五子流域边界',
   true
 );
 

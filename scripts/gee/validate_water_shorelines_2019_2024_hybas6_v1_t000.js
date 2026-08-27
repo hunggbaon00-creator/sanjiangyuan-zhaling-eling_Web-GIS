@@ -1,12 +1,12 @@
-// hybas6_v0 / t000 跨年岸线核查
+// hybas6_v1 / t000 跨年岸线核查
 // 检查 MNDWI > 0.0 在 2019、2024 年的湖岸、浅水区和陆地误提。
 
 
 var roiCollection = ee.FeatureCollection(
   'projects/careful-form-499402-d0/assets/' +
-  'zhaling_eling_watershed_hybas6_v0'
+  'zhaling_eling_watershed_hybas6_v1'
 );
-var roi = roiCollection.geometry();
+var roi = roiCollection.geometry().dissolve(1);
 
 var candidateThreshold = 0.0;
 var previousThreshold = 0.1;
@@ -150,7 +150,7 @@ Map.addLayer(
     width: 2
   }),
   {},
-  'hybas6_v0 研究区边界',
+  'hybas6_v1 五子流域边界',
   true
 );
 

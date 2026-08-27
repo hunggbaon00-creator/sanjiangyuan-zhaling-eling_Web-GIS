@@ -1,13 +1,13 @@
-// hybas6_v0 水体阈值验证
+// hybas6_v1 水体阈值验证
 // 验证年份：2021
 // 阈值：-0.1、0、0.1、0.2
 
 var roiCollection = ee.FeatureCollection(
   'projects/careful-form-499402-d0/assets/' +
-  'zhaling_eling_watershed_hybas6_v0'
+  'zhaling_eling_watershed_hybas6_v1'
 );
 
-var roi = roiCollection.geometry();
+var roi = roiCollection.geometry().dissolve(1);
 
 var validationYear = 2021;
 var statisticsScale = 20;
@@ -167,7 +167,7 @@ Map.addLayer(
     width: 2
   }),
   {},
-  'hybas6_v0 研究区边界',
+  'hybas6_v1 五子流域边界',
   true
 );
 
@@ -251,7 +251,7 @@ var resultRows = thresholdSpecs.map(
       worldcover_overlap_share:
         overlapArea.divide(waterArea),
 
-      roi_version: 'hybas6_v0',
+      roi_version: 'hybas6_v1',
       scale_m: statisticsScale
     });
   }
@@ -274,10 +274,10 @@ print('研究区元数据', roiCollection.first());
 Export.table.toDrive({
   collection: validationResults,
   description:
-    'water_threshold_validation_2021_hybas6_v0',
+    'water_threshold_validation_2021_hybas6_v1',
   folder: 'SRT_GEE_exports',
   fileNamePrefix:
-    'water_threshold_validation_2021_hybas6_v0',
+    'water_threshold_validation_2021_hybas6_v1',
   fileFormat: 'CSV',
   selectors: [
     'year',

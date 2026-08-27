@@ -2,61 +2,45 @@
 
 ## 正式文件
 
-Streamlit 当前只读取：
+| 文件 | 行数 | 用途 |
+| --- | ---: | --- |
+| `zhaling_eling_yearly_stats.csv` | 7 | 研究区总体年度统计 |
+| `zhaling_eling_subbasin_yearly_stats.csv` | 35 | 5个子流域的年度统计 |
 
-```text
-data/processed/zhaling_eling_yearly_stats.csv
-```
+当前口径为 `hybas6_v1_t000`：2018—2024年、Sentinel-2 SR Harmonized、6月1日至9月30日、20 m、`MNDWI > 0.0`。
 
-该文件由以下已验证候选文件晋级而来，两者 SHA-256 一致：
+## 总体统计字段
 
-```text
-data/processed/candidates/zhaling_eling_yearly_stats_2018_2024_hybas6_v0_t000.csv
-```
+`year`、`image_count`、`roi_area_km2`、`valid_area_km2`、`valid_share`、`coverage_flag`、`ndvi_mean`、`mndwi_mean`、`water_area_km2`、`water_threshold`、`roi_version`、`statistics_scale_m`。
 
-当前正式口径为 `hybas6_v0_t000`：2018—2024 年、Sentinel-2 SR Harmonized、每年 6 月 1 日至 9 月 30 日、20 m、`MNDWI > 0.0`。
+## 分区统计字段
 
-## 字段定义
+在覆盖率和指标字段之外增加：
 
-| 字段 | 含义 |
-| --- | --- |
-| `year` | 统计年份 |
-| `image_count` | 当年进入合成的影像数量 |
-| `roi_area_km2` | 研究区面积，平方千米 |
-| `valid_area_km2` | 年度合成中至少有一次有效观测的面积，平方千米 |
-| `valid_share` | `valid_area_km2 / roi_area_km2` |
-| `coverage_flag` | 有效覆盖等级：`high`、`medium` 或 `low` |
-| `ndvi_mean` | 有效区域内的年度平均 NDVI |
-| `mndwi_mean` | 有效区域内的年度平均 MNDWI |
-| `water_area_km2` | 满足 `MNDWI > water_threshold` 的有效像元面积 |
-| `water_threshold` | 水体识别阈值，当前为 `0.0` |
-| `roi_version` | 研究区版本，当前为 `hybas6_v0` |
-| `statistics_scale_m` | GEE 统计尺度，当前为 20 m |
+- `subbasin_id`：SB01—SB05稳定分区编号。
+- `subbasin_name`：项目显示名称。
+- `hybas_id`、`next_down`：HydroBASINS标识及下游拓扑。
+- `subbasin_area_km2`：20 m栅格口径分区面积。
+- `image_count`：当年与该子流域相交且通过场景云量过滤的影像数。
 
-覆盖等级规则：
+覆盖等级规则：`high >= 0.95`；`0.80 <= medium < 0.95`；`low < 0.80`。
 
-- `high`：`valid_share >= 0.95`
-- `medium`：`0.80 <= valid_share < 0.95`
-- `low`：`valid_share < 0.80`
+## 质量结论
 
-## 当前质量结论
+- v1五区合并几何与v0外边界对称差为0。
+- 总体统计使用 `FeatureCollection.geometry().dissolve(1)`，避免内部边界影响栅格聚合。
+- v1总体结果与v0保持同一数值口径。
+- 2018年总体覆盖等级为 `low`，水体面积可能低估约2%；其余年份为 `high`。
+- `t000` 已重新执行阈值、岸线及2018跨传感器验证。
 
-- 2018 年 `valid_share = 0.6522`，等级为 `low`；水体面积 `1517.62 km²` 受 Sentinel-2 覆盖限制，结合 Landsat 8 独立验证可能约低估 2%。
-- 2019—2024 年覆盖等级均为 `high`。
-- `t000` 已通过 2021 年多阈值对比、2019/2024 年岸线检查和 2018 年 Landsat 8 交叉验证。
-- 当前 GeoJSON 是 5 个六级子流域融合后的单一外边界；5 个子流域内部边界留待 v1 重新生成。
+完整验证证据和阈值旧基线说明见 `docs/hybas6_v1_t000_validation.md`。
 
-## 候选文件晋级流程
+## 候选晋级
 
-1. 新导出文件进入 `data/processed/candidates/`，不得直接覆盖正式文件。
-2. 检查年份为 2018—2024、每年仅一条记录且必需字段无缺失。
-3. 检查所有记录的 `roi_version`、`water_threshold` 和 `statistics_scale_m` 一致。
-4. 检查 `valid_share` 范围、覆盖等级及异常年份，并完成所需验证。
-5. 将通过验证的唯一候选复制为 `zhaling_eling_yearly_stats.csv`。
-6. 启动 Streamlit 完成页面复核，再提交正式文件。
+1. 原始导出保存到 `data/processed/candidates/`。
+2. 检查边界5个Feature、总体7行、分区35行及唯一键。
+3. 检查版本、阈值、尺度、空值、数值范围和覆盖等级。
+4. 检查v1总体与v0回归，以及每年五区面积汇总与总体结果的一致性。
+5. 验证通过后复制为上述正式文件并启动 Streamlit 复核。
 
-## Git 跟踪规则
-
-- 跟踪：本 README、`zhaling_eling_yearly_stats.csv`、正式边界 GeoJSON、脚本和应用代码。
-- 不跟踪：`candidates/`、`archive/`、其他临时导出和大体量栅格文件。
-- 历史正式版本通过 Git commit/tag 恢复；本地 `archive/` 只作为临时备份，不作为版本来源。
+候选文件、旧数据副本和大体量栅格不纳入 Git；正式历史通过 commit 和 tag 恢复。

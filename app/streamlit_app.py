@@ -11,11 +11,17 @@ from streamlit_folium import st_folium
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "zhaling_eling_yearly_stats.csv"
+SUBBASIN_DATA_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "processed"
+    / "zhaling_eling_subbasin_yearly_stats.csv"
+)
 BOUNDARY_PATH = (
     PROJECT_ROOT
     / "data"
     / "boundaries"
-    / "zhaling_eling_watershed_hybas6_v0.geojson"
+    / "zhaling_eling_watershed_hybas6_v1.geojson"
 )
 
 REQUIRED_COLUMNS = {
@@ -37,6 +43,40 @@ NUMERIC_COLUMNS = [
     "year",
     "image_count",
     "roi_area_km2",
+    "valid_area_km2",
+    "valid_share",
+    "ndvi_mean",
+    "mndwi_mean",
+    "water_area_km2",
+    "water_threshold",
+    "statistics_scale_m",
+]
+
+SUBBASIN_REQUIRED_COLUMNS = {
+    "year",
+    "image_count",
+    "subbasin_id",
+    "subbasin_name",
+    "hybas_id",
+    "next_down",
+    "subbasin_area_km2",
+    "valid_area_km2",
+    "valid_share",
+    "coverage_flag",
+    "ndvi_mean",
+    "mndwi_mean",
+    "water_area_km2",
+    "water_threshold",
+    "roi_version",
+    "statistics_scale_m",
+}
+
+SUBBASIN_NUMERIC_COLUMNS = [
+    "year",
+    "image_count",
+    "hybas_id",
+    "next_down",
+    "subbasin_area_km2",
     "valid_area_km2",
     "valid_share",
     "ndvi_mean",
@@ -93,6 +133,12 @@ def load_yearly_stats(path: str) -> pd.DataFrame:
         raise ValueError("年度统计CSV存在关键字段缺失值。")
     if not data["valid_share"].between(0, 1).all():
         raise ValueError("valid_share 应位于0—1之间。")
+    if set(data["roi_version"]) != {"hybas6_v1"}:
+        raise ValueError("总体年度统计不是hybas6_v1版本。")
+    if set(data["water_threshold"].astype(float)) != {0.0}:
+        raise ValueError("总体年度统计水体阈值不是0.0。")
+    if set(data["statistics_scale_m"].astype(int)) != {20}:
+        raise ValueError("总体年度统计尺度不是20 m。")
 
     data["year"] = data["year"].astype(int)
     data["image_count"] = data["image_count"].astype(int)
@@ -104,11 +150,49 @@ def load_yearly_stats(path: str) -> pd.DataFrame:
 
 
 @st.cache_data
+def load_subbasin_stats(path: str) -> pd.DataFrame:
+    data = pd.read_csv(path)
+    missing_columns = SUBBASIN_REQUIRED_COLUMNS.difference(data.columns)
+    if missing_columns:
+        missing = "、".join(sorted(missing_columns))
+        raise ValueError(f"子流域年度统计CSV缺少字段：{missing}")
+
+    data = data.copy()
+    for column in SUBBASIN_NUMERIC_COLUMNS:
+        data[column] = pd.to_numeric(data[column], errors="raise")
+    if len(data) != 35:
+        raise ValueError(f"子流域年度统计应为35行，当前为{len(data)}行。")
+    if data.duplicated(["year", "subbasin_id"]).any():
+        raise ValueError("子流域年度统计存在重复的年份—分区组合。")
+    if data[list(SUBBASIN_REQUIRED_COLUMNS)].isna().any().any():
+        raise ValueError("子流域年度统计存在关键字段缺失值。")
+    if set(data["subbasin_id"]) != {"SB01", "SB02", "SB03", "SB04", "SB05"}:
+        raise ValueError("子流域编号应为SB01—SB05。")
+    if set(data["roi_version"]) != {"hybas6_v1"}:
+        raise ValueError("子流域年度统计不是hybas6_v1版本。")
+    if not data["valid_share"].between(0, 1).all():
+        raise ValueError("子流域valid_share应位于0—1之间。")
+
+    data["year"] = data["year"].astype(int)
+    data["image_count"] = data["image_count"].astype(int)
+    data["coverage_label"] = data["coverage_flag"].map(COVERAGE_LABELS)
+    return data.sort_values(["year", "subbasin_id"]).reset_index(drop=True)
+
+
+@st.cache_data
 def load_boundary(path: str) -> dict:
     with Path(path).open("r", encoding="utf-8") as file:
         boundary = json.load(file)
     if boundary.get("type") != "FeatureCollection" or not boundary.get("features"):
         raise ValueError("研究区GeoJSON不是有效的FeatureCollection。")
+    if len(boundary["features"]) != 5:
+        raise ValueError("hybas6_v1边界应包含5个子流域Feature。")
+    subbasin_ids = {
+        feature.get("properties", {}).get("subbasin_id")
+        for feature in boundary["features"]
+    }
+    if subbasin_ids != {"SB01", "SB02", "SB03", "SB04", "SB05"}:
+        raise ValueError("hybas6_v1边界的子流域编号不完整。")
     return boundary
 
 
@@ -129,7 +213,7 @@ def build_boundary_map(boundary: dict) -> Map:
 
     boundary_layer = GeoJson(
         boundary,
-        name="hybas6_v0研究区外边界",
+        name="hybas6_v1五子流域边界",
         style_function=lambda _: {
             "color": "#D62728",
             "weight": 3,
@@ -142,8 +226,20 @@ def build_boundary_map(boundary: dict) -> Map:
             "fillOpacity": 0.12,
         },
         tooltip=GeoJsonTooltip(
-            fields=["name_cn", "roi_id", "hybas_level", "area_km2"],
-            aliases=["名称：", "ROI ID：", "HydroBASINS等级：", "矢量面积（km²）："],
+            fields=[
+                "subbasin_id",
+                "name_cn",
+                "hybas_id",
+                "next_down",
+                "area_km2",
+            ],
+            aliases=[
+                "分区编号：",
+                "名称：",
+                "HYBAS ID：",
+                "下游 HYBAS ID：",
+                "矢量面积（km²）：",
+            ],
             localize=True,
             sticky=False,
         ),
@@ -210,8 +306,9 @@ st.caption("基于Google Earth Engine与WebGIS的年度统计可视化原型")
 
 try:
     yearly_data = load_yearly_stats(str(DATA_PATH))
+    subbasin_data = load_subbasin_stats(str(SUBBASIN_DATA_PATH))
 except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
-    st.error(f"无法读取正式年度统计数据：{error}")
+    st.error(f"无法读取正式hybas6_v1数据：{error}")
     st.stop()
 
 years = yearly_data["year"].tolist()
@@ -229,7 +326,7 @@ st.sidebar.caption(
     "生长季：6月1日—9月30日\n\n"
     "水体：MNDWI > 0.0\n\n"
     "统计尺度：20 m\n\n"
-    "ROI：hybas6_v0"
+    "ROI：hybas6_v1（5个六级子流域）"
 )
 
 current = yearly_data.loc[yearly_data["year"] == selected_year].iloc[0]
@@ -270,7 +367,7 @@ with map_column:
         boundary_map = build_boundary_map(boundary_data)
         st_folium(boundary_map, height=500, width=None)
         st.caption(
-            "当前显示hybas6_v0融合后的研究区外边界；5个六级子流域内部边界将在v1阶段恢复。"
+            "当前显示hybas6_v1的5个HydroBASINS六级子流域；悬停可查看分区属性。"
         )
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
         st.error(f"无法加载研究区边界：{error}")
@@ -320,7 +417,49 @@ with st.expander("查看年度统计明细"):
         },
     )
 
+with st.expander(f"查看{selected_year}年五子流域统计"):
+    selected_subbasins = subbasin_data.loc[
+        subbasin_data["year"] == selected_year,
+        [
+            "subbasin_id",
+            "subbasin_name",
+            "image_count",
+            "ndvi_mean",
+            "mndwi_mean",
+            "water_area_km2",
+            "valid_share",
+            "coverage_label",
+        ],
+    ].rename(
+        columns={
+            "subbasin_id": "分区编号",
+            "subbasin_name": "分区名称",
+            "image_count": "影像数量",
+            "ndvi_mean": "NDVI均值",
+            "mndwi_mean": "MNDWI均值",
+            "water_area_km2": "水体面积（km²）",
+            "valid_share": "有效覆盖率",
+            "coverage_label": "覆盖等级",
+        }
+    )
+    selected_subbasins["有效覆盖率"] *= 100
+    st.dataframe(
+        selected_subbasins,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "NDVI均值": st.column_config.NumberColumn(format="%.4f"),
+            "MNDWI均值": st.column_config.NumberColumn(format="%.4f"),
+            "水体面积（km²）": st.column_config.NumberColumn(format="%.2f"),
+            "有效覆盖率": st.column_config.ProgressColumn(
+                min_value=0,
+                max_value=100,
+                format="%.2f%%",
+            ),
+        },
+    )
+
 st.caption(
-    "数据版本：hybas6_v0_t000｜统计年份：2018—2024｜"
-    "水体判定：MNDWI > 0.0｜结果用于当前v0研究与展示。"
+    "数据版本：hybas6_v1_t000｜统计年份：2018—2024｜"
+    "水体判定：MNDWI > 0.0｜总体与五子流域采用同一统计口径。"
 )

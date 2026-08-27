@@ -42,6 +42,7 @@ data/processed/candidates/
 data/processed/archive/
 data/processed/*.csv
 !data/processed/zhaling_eling_yearly_stats.csv
+!data/processed/zhaling_eling_subbasin_yearly_stats.csv
 *.tif
 *.tiff
 *.vrt
