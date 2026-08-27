@@ -1,76 +1,326 @@
+import json
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from pathlib import Path
-from folium import Map, Marker, TileLayer
+from folium import GeoJson, Map, TileLayer
+from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "zhaling_eling_yearly_stats.csv"
+BOUNDARY_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "boundaries"
+    / "zhaling_eling_watershed_hybas6_v0.geojson"
+)
+
+REQUIRED_COLUMNS = {
+    "year",
+    "image_count",
+    "roi_area_km2",
+    "valid_area_km2",
+    "valid_share",
+    "coverage_flag",
+    "ndvi_mean",
+    "mndwi_mean",
+    "water_area_km2",
+    "water_threshold",
+    "roi_version",
+    "statistics_scale_m",
+}
+
+NUMERIC_COLUMNS = [
+    "year",
+    "image_count",
+    "roi_area_km2",
+    "valid_area_km2",
+    "valid_share",
+    "ndvi_mean",
+    "mndwi_mean",
+    "water_area_km2",
+    "water_threshold",
+    "statistics_scale_m",
+]
+
+COVERAGE_LABELS = {
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+}
+
+METRICS = {
+    "NDVI均值": {
+        "column": "ndvi_mean",
+        "axis": "研究区NDVI均值",
+        "color": "#2E8B57",
+        "format": ".4f",
+    },
+    "MNDWI均值": {
+        "column": "mndwi_mean",
+        "axis": "研究区MNDWI均值",
+        "color": "#2878B5",
+        "format": ".4f",
+    },
+    "水体面积": {
+        "column": "water_area_km2",
+        "axis": "水体面积（km²）",
+        "color": "#0066CC",
+        "format": ",.2f",
+    },
+}
+
+
+@st.cache_data
+def load_yearly_stats(path: str) -> pd.DataFrame:
+    data = pd.read_csv(path)
+    missing_columns = REQUIRED_COLUMNS.difference(data.columns)
+    if missing_columns:
+        missing = "、".join(sorted(missing_columns))
+        raise ValueError(f"年度统计CSV缺少字段：{missing}")
+
+    data = data.copy()
+    for column in NUMERIC_COLUMNS:
+        data[column] = pd.to_numeric(data[column], errors="raise")
+
+    if data["year"].duplicated().any():
+        duplicated = data.loc[data["year"].duplicated(), "year"].tolist()
+        raise ValueError(f"年度统计CSV存在重复年份：{duplicated}")
+    if data[list(REQUIRED_COLUMNS)].isna().any().any():
+        raise ValueError("年度统计CSV存在关键字段缺失值。")
+    if not data["valid_share"].between(0, 1).all():
+        raise ValueError("valid_share 应位于0—1之间。")
+
+    data["year"] = data["year"].astype(int)
+    data["image_count"] = data["image_count"].astype(int)
+    data["coverage_label"] = data["coverage_flag"].map(COVERAGE_LABELS)
+    data["coverage_label"] = data["coverage_label"].fillna(
+        data["coverage_flag"]
+    )
+    return data.sort_values("year").reset_index(drop=True)
+
+
+@st.cache_data
+def load_boundary(path: str) -> dict:
+    with Path(path).open("r", encoding="utf-8") as file:
+        boundary = json.load(file)
+    if boundary.get("type") != "FeatureCollection" or not boundary.get("features"):
+        raise ValueError("研究区GeoJSON不是有效的FeatureCollection。")
+    return boundary
+
+
+def build_boundary_map(boundary: dict) -> Map:
+    map_object = Map(
+        location=[34.9, 97.55],
+        zoom_start=7,
+        control_scale=True,
+        tiles=None,
+    )
+    TileLayer("OpenStreetMap", name="OpenStreetMap", show=True).add_to(map_object)
+    TileLayer(
+        tiles="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        attr="Map data © OpenStreetMap contributors, SRTM | Map style © OpenTopoMap",
+        name="地形图",
+        show=False,
+    ).add_to(map_object)
+
+    boundary_layer = GeoJson(
+        boundary,
+        name="hybas6_v0研究区外边界",
+        style_function=lambda _: {
+            "color": "#D62728",
+            "weight": 3,
+            "fillColor": "#D62728",
+            "fillOpacity": 0.08,
+        },
+        highlight_function=lambda _: {
+            "color": "#FF7F0E",
+            "weight": 4,
+            "fillOpacity": 0.12,
+        },
+        tooltip=GeoJsonTooltip(
+            fields=["name_cn", "roi_id", "hybas_level", "area_km2"],
+            aliases=["名称：", "ROI ID：", "HydroBASINS等级：", "矢量面积（km²）："],
+            localize=True,
+            sticky=False,
+        ),
+    )
+    boundary_layer.add_to(map_object)
+    map_object.fit_bounds(boundary_layer.get_bounds())
+    return map_object
+
+
+def build_trend_chart(data: pd.DataFrame, metric_name: str):
+    metric = METRICS[metric_name]
+    column = metric["column"]
+    figure = px.line(
+        data,
+        x="year",
+        y=column,
+        markers=True,
+        custom_data=["valid_share", "coverage_label", "image_count"],
+        labels={"year": "年份", column: metric["axis"]},
+    )
+    figure.update_traces(
+        line={"color": metric["color"], "width": 3},
+        marker={"size": 9},
+        hovertemplate=(
+            "年份：%{x}<br>"
+            + metric["axis"]
+            + "：%{y:"
+            + metric["format"]
+            + "}<br>有效覆盖率：%{customdata[0]:.2%}"
+            "<br>覆盖等级：%{customdata[1]}"
+            "<br>影像数量：%{customdata[2]:.0f}<extra></extra>"
+        ),
+    )
+
+    limited_coverage = data[data["coverage_flag"] != "high"]
+    if not limited_coverage.empty:
+        figure.add_scatter(
+            x=limited_coverage["year"],
+            y=limited_coverage[column],
+            mode="markers",
+            name="覆盖受限年份",
+            marker={"color": "#FF8C00", "size": 13, "symbol": "diamond"},
+            hoverinfo="skip",
+        )
+
+    figure.update_layout(
+        height=440,
+        margin={"l": 20, "r": 20, "t": 30, "b": 20},
+        hovermode="x unified",
+        legend={"orientation": "h", "y": 1.12, "x": 0},
+    )
+    figure.update_xaxes(dtick=1)
+    return figure
+
 
 st.set_page_config(
-    page_title="SRT WebGIS 原型",
+    page_title="扎陵湖—鄂陵湖植被水体监测",
+    page_icon="🏔️",
     layout="wide",
 )
 
-st.title("三江源扎陵湖-鄂陵湖 WebGIS 原型")
-st.caption("环境测试页：后续可替换为 GEE 导出的 NDVI、NDWI/MNDWI 图层和统计结果。")
+st.title("三江源扎陵湖—鄂陵湖植被与水体监测")
+st.caption("基于Google Earth Engine与WebGIS的年度统计可视化原型")
 
-years = [2018, 2019, 2020, 2021, 2022, 2023, 2024]
-layer = st.sidebar.radio("展示图层", ["研究区概览", "NDVI 示例", "水体指数示例"], index=0)
+try:
+    yearly_data = load_yearly_stats(str(DATA_PATH))
+except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
+    st.error(f"无法读取正式年度统计数据：{error}")
+    st.stop()
 
-if DATA_PATH.exists():
-    data = pd.read_csv(DATA_PATH)
-    data = data.rename(
+years = yearly_data["year"].tolist()
+selected_year = st.sidebar.selectbox("统计年份", years, index=len(years) - 1)
+selected_metric = st.sidebar.radio(
+    "趋势指标",
+    list(METRICS),
+    index=2,
+)
+
+st.sidebar.divider()
+st.sidebar.markdown("**数据口径**")
+st.sidebar.caption(
+    "Sentinel-2 SR Harmonized\n\n"
+    "生长季：6月1日—9月30日\n\n"
+    "水体：MNDWI > 0.0\n\n"
+    "统计尺度：20 m\n\n"
+    "ROI：hybas6_v0"
+)
+
+current = yearly_data.loc[yearly_data["year"] == selected_year].iloc[0]
+
+metric_columns = st.columns(4)
+metric_columns[0].metric("水体面积", f"{current['water_area_km2']:,.2f} km²")
+metric_columns[1].metric("NDVI均值", f"{current['ndvi_mean']:.4f}")
+metric_columns[2].metric("MNDWI均值", f"{current['mndwi_mean']:.4f}")
+metric_columns[3].metric(
+    "有效覆盖率",
+    f"{current['valid_share']:.2%}",
+    help="有效MNDWI像元面积占研究区栅格口径面积的比例。",
+)
+
+st.caption(
+    f"{selected_year}年共使用 {current['image_count']} 景候选影像；"
+    f"覆盖等级：{current['coverage_label']}。"
+)
+
+if current["coverage_flag"] == "low":
+    st.warning(
+        f"{selected_year}年有效覆盖率仅为 {current['valid_share']:.2%}。"
+        "该年度正式Sentinel-2水体面积可能约低估2%，应结合Landsat 8独立验证结果解释，"
+        "不宜与高覆盖年份等权比较。"
+    )
+elif current["coverage_flag"] == "medium":
+    st.warning(
+        f"{selected_year}年有效覆盖率为 {current['valid_share']:.2%}，"
+        "进行跨年比较时应注意覆盖差异。"
+    )
+
+map_column, chart_column = st.columns([1.1, 1])
+
+with map_column:
+    st.subheader("研究区范围")
+    try:
+        boundary_data = load_boundary(str(BOUNDARY_PATH))
+        boundary_map = build_boundary_map(boundary_data)
+        st_folium(boundary_map, height=500, width=None)
+        st.caption(
+            "当前显示hybas6_v0融合后的研究区外边界；5个六级子流域内部边界将在v1阶段恢复。"
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
+        st.error(f"无法加载研究区边界：{error}")
+
+with chart_column:
+    st.subheader(f"2018—2024年{selected_metric}趋势")
+    trend_chart = build_trend_chart(yearly_data, selected_metric)
+    st.plotly_chart(trend_chart, width="stretch")
+    st.caption("橙色菱形表示有效覆盖率低于95%的年份。")
+
+with st.expander("查看年度统计明细"):
+    detail_data = yearly_data[
+        [
+            "year",
+            "image_count",
+            "ndvi_mean",
+            "mndwi_mean",
+            "water_area_km2",
+            "valid_share",
+            "coverage_label",
+        ]
+    ].rename(
         columns={
             "year": "年份",
+            "image_count": "影像数量",
             "ndvi_mean": "NDVI均值",
             "mndwi_mean": "MNDWI均值",
-            "water_area_km2": "水体面积(km²)",
-            "image_count": "影像数量",
+            "water_area_km2": "水体面积（km²）",
+            "valid_share": "有效覆盖率",
+            "coverage_label": "覆盖等级",
         }
     )
-    st.sidebar.success("已读取 GEE 导出的真实统计数据")
-else:
-    data = pd.DataFrame(
-        {
-            "年份": years,
-            "NDVI均值": [0.42, 0.44, 0.43, 0.46, 0.45, 0.47, 0.48],
-            "MNDWI均值": [0.10, 0.11, 0.12, 0.13, 0.12, 0.13, 0.14],
-            "水体面积(km²)": [1.00, 0.98, 1.03, 1.05, 1.02, 1.04, 1.06],
-            "影像数量": [0, 0, 0, 0, 0, 0, 0],
-        }
+    detail_data["有效覆盖率"] = detail_data["有效覆盖率"] * 100
+    st.dataframe(
+        detail_data,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "NDVI均值": st.column_config.NumberColumn(format="%.4f"),
+            "MNDWI均值": st.column_config.NumberColumn(format="%.4f"),
+            "水体面积（km²）": st.column_config.NumberColumn(format="%.2f"),
+            "有效覆盖率": st.column_config.ProgressColumn(
+                min_value=0,
+                max_value=100,
+                format="%.2f%%",
+            ),
+        },
     )
-    st.sidebar.info("当前使用示例数据")
 
-years = sorted(data["年份"].dropna().astype(int).unique().tolist())
-selected_year = st.sidebar.selectbox("年份", years, index=len(years) - 1)
-
-map_col, chart_col = st.columns([1.25, 1])
-
-with map_col:
-    st.subheader("研究区地图")
-    m = Map(location=[34.92, 97.55], zoom_start=8, control_scale=True)
-    TileLayer("OpenStreetMap", name="OpenStreetMap").add_to(m)
-    Marker([34.93, 97.32], popup="扎陵湖区域").add_to(m)
-    Marker([34.86, 97.70], popup="鄂陵湖区域").add_to(m)
-    st_folium(m, height=520, width=820)
-
-with chart_col:
-    st.subheader(f"{selected_year} 年指标展示")
-    if layer == "水体指数示例":
-        y_col = "水体面积(km²)" if "水体面积(km²)" in data.columns else "MNDWI均值"
-    else:
-        y_col = "NDVI均值"
-    fig = px.line(data, x="年份", y=y_col, markers=True)
-    st.plotly_chart(fig)
-
-    current = data[data["年份"].astype(int) == int(selected_year)]
-    if not current.empty:
-        st.dataframe(current, hide_index=True)
-
-    st.info(
-        "当前页面用于验证 Streamlit、Folium、Plotly 和 pandas 是否安装成功。"
-        "正式开发时，可将这里的示例数据替换为 GEE 导出的 CSV、GeoJSON 或栅格图层。"
-    )
+st.caption(
+    "数据版本：hybas6_v0_t000｜统计年份：2018—2024｜"
+    "水体判定：MNDWI > 0.0｜结果用于当前v0研究与展示。"
+)

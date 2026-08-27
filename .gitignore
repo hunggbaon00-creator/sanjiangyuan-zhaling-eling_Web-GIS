@@ -32,12 +32,16 @@ desktop.ini
 *.doc
 *.docx
 
-# Large or generated geospatial outputs
+# Raw, candidate, archived, or generated geospatial outputs
 data/raw/*
-data/processed/*
 !data/raw/.gitkeep
-!data/processed/README.md
-!data/processed/*.sample.csv
+
+# Track only the canonical processed CSV and its documentation.
+# Formal boundary GeoJSON files under data/boundaries/ are intentionally tracked.
+data/processed/candidates/
+data/processed/archive/
+data/processed/*.csv
+!data/processed/zhaling_eling_yearly_stats.csv
 *.tif
 *.tiff
 *.vrt
@@ -58,5 +62,3 @@ exports/
 tmp/
 temp/
 *.log
-
-!data/processed/zhaling_eling_yearly_stats.csv
