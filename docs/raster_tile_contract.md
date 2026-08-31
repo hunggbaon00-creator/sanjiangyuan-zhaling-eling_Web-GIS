@@ -84,4 +84,17 @@ not_generated → processing → ready
 
 7. 启动页面，验证年份切换、图层透明度、选区边界、图例和瓦片加载。
 
-当前2024年MNDWI资产已启动试导出并标记为`processing`，任务ID为`Q2XVPPSVHCI7G44D4TWPAGIP`；其余34个图层年份资产保持`not_generated`。在试导出文件完成检查、发布并晋级为`ready`前，页面只展示处理状态，不产生该资产的栅格瓦片请求。
+## 2024年本地派生候选瓦片
+
+验证通过的2024年MNDWI COG可在本地派生两类候选资产，不产生新的GEE计算请求：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_mndwi_derived_tiles.py `
+  --input "C:\path\to\zhaling_eling_mndwi_2024_hybas6_v1_t000_pilot.tif"
+```
+
+构建入口先校验固定来源SHA-256，再生成水体掩膜和有效观测掩膜二值COG，并输出z5—13的透明RGBA PNG XYZ瓦片。水体规则为`MNDWI > 0.0`，有效观测规则为`MNDWI != -9999`；二值COG中的0作为NoData，瓦片中的背景完全透明。
+
+默认候选目录为`data/processed/candidates/raster_tiles/hybas6_v1_t000/2024/`，其中包含两套瓦片、两个二值来源COG和`candidate_manifest.json`。该目录不纳入版本库，也不能作为页面正式地址；稳定HTTPS发布与浏览器性能验收完成前，资产保持`processing`。
+
+当前2024年MNDWI、水体掩膜和有效观测掩膜三个资产标记为`processing`，其余32个图层年份资产保持`not_generated`。页面只展示处理状态，不产生这些资产的栅格瓦片请求。

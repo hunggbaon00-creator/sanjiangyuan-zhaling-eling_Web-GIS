@@ -88,7 +88,7 @@
         "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
-        "2024": {"status": "processing", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "2024年MNDWI试导出已进入GEE批任务队列，任务ID：Q2XVPPSVHCI7G44D4TWPAGIP。"}
+        "2024": {"status": "processing", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "2024年MNDWI试导出已完成，并通过COG结构、值域、NoData和统计一致性检查；等待稳定HTTPS发布与浏览器验收。"}
       }
     },
     {
@@ -112,7 +112,7 @@
         "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
-        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+        "2024": {"status": "processing", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "已由验证通过的2024年MNDWI COG按MNDWI > 0.0在本地生成候选COG和XYZ瓦片；等待浏览器验收与稳定HTTPS发布。"}
       }
     },
     {
@@ -136,7 +136,7 @@
         "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
-        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+        "2024": {"status": "processing", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "已由验证通过的2024年MNDWI COG按NoData != -9999在本地生成候选COG和XYZ瓦片；等待浏览器验收与稳定HTTPS发布。"}
       }
     }
   ]

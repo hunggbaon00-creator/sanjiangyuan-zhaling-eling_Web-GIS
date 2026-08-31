@@ -51,6 +51,8 @@ projects/careful-form-499402-d0/assets/zhaling_eling_watershed_hybas6_v1
 
 任务输出为2024年全研究区、20 m、EPSG:3857的单波段MNDWI Cloud Optimized GeoTIFF，NoData为`-9999`。工作负载标签为`hybas6-v1-2024-mndwi-pilot`，用于在Cloud Monitoring中单独核对EECU消耗。脚本会拒绝启动同名的活动任务。
 
+试导出已完成并通过本地结构与统计一致性检查。后续水体掩膜和有效观测掩膜候选瓦片由`scripts/build_mndwi_derived_tiles.py`从该COG本地派生，不再调用GEE。
+
 ## 验证
 
 - `validate_water_thresholds_hybas6_v1.js`：2021年四阈值对比。

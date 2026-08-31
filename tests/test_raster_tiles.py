@@ -67,10 +67,19 @@ class RasterTileContractTests(unittest.TestCase):
             for asset in layer.assets
         }
         self.assertEqual(
-            status_by_asset[("mndwi_raster", 2024)], "processing"
+            {
+                asset
+                for asset, status in status_by_asset.items()
+                if status == "processing"
+            },
+            {
+                ("mndwi_raster", 2024),
+                ("water_mask_raster", 2024),
+                ("valid_observation_raster", 2024),
+            },
         )
         self.assertEqual(
-            list(status_by_asset.values()).count("not_generated"), 34
+            list(status_by_asset.values()).count("not_generated"), 32
         )
 
     def test_resolves_selected_layer_year_without_fallback(self) -> None:

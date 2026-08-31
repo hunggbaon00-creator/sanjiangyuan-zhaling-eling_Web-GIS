@@ -65,7 +65,7 @@ Web运行环境已与GEE数据生产环境分离。精简运行时不安装`eart
 5. 建立底图和业务图层注册表，支持边界、水体面积、NDVI、MNDWI、有效覆盖率年度分区专题层，以及透明度、动态Tooltip和固定色带图例。
 6. 建立年度XYZ瓦片清单、JSON Schema、严格状态机和页面适配器；只有通过验证的`ready`资产才会加载。
 
-当前2024年MNDWI资产已进入试导出并标记为`processing`，其余34个图层年份资产保持`not_generated`。在资产完成验证并晋级为`ready`前，页面不会请求该栅格瓦片，也不会回退到其他年份。完整契约与晋级流程见`docs/raster_tile_contract.md`。
+2024年MNDWI试导出已完成本地验证，并已派生水体掩膜和有效观测掩膜候选瓦片；这三个2024年资产标记为`processing`，其余32个图层年份资产保持`not_generated`。在资产发布并晋级为`ready`前，页面不会请求这些栅格瓦片，也不会回退到其他年份。完整契约与晋级流程见`docs/raster_tile_contract.md`。
 
 ## GEE授权与导出
 
