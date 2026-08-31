@@ -1,5 +1,6 @@
 streamlit
 folium
+branca
 streamlit-folium
 plotly
 pandas

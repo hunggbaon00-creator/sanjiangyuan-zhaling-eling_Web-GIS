@@ -6,6 +6,13 @@ from collections.abc import Collection, MutableMapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.layer_system import (
+    BASEMAP_IDS,
+    DEFAULT_BASEMAP_ID,
+    DEFAULT_LAYER_ID,
+    LAYER_IDS,
+)
+
 
 SELECTED_YEAR_KEY = "selected_year"
 SELECTED_METRIC_KEY = "selected_metric"
@@ -13,17 +20,20 @@ SELECTED_SUBBASIN_KEY = "selected_subbasin_id"
 SUBBASIN_SELECTOR_KEY = "subbasin_selector"
 VIEW_SCOPE_KEY = "view_scope"
 ACTIVE_LAYER_KEY = "active_layer"
+BASEMAP_KEY = "basemap"
 LAYER_OPACITY_KEY = "layer_opacity"
 MAP_REVISION_KEY = "map_revision"
 
 OVERALL_SCOPE = "overall"
 SUBBASIN_SCOPE = "subbasin"
-DEFAULT_ACTIVE_LAYER = "boundary"
+DEFAULT_ACTIVE_LAYER = DEFAULT_LAYER_ID
+DEFAULT_BASEMAP = DEFAULT_BASEMAP_ID
 DEFAULT_LAYER_OPACITY = 0.7
 DEFAULT_METRIC = "水体面积"
 
 SUBBASIN_IDS = frozenset({"SB01", "SB02", "SB03", "SB04", "SB05"})
-AVAILABLE_LAYERS = frozenset({DEFAULT_ACTIVE_LAYER})
+AVAILABLE_LAYERS = LAYER_IDS
+AVAILABLE_BASEMAPS = BASEMAP_IDS
 
 
 @dataclass(frozen=True)
@@ -35,6 +45,7 @@ class WebGISState:
     selected_subbasin_id: str | None
     view_scope: str
     active_layer: str
+    basemap: str
     layer_opacity: float
     map_revision: int
 
@@ -85,6 +96,11 @@ def initialize_webgis_state(
         active_layer = DEFAULT_ACTIVE_LAYER
     session_state[ACTIVE_LAYER_KEY] = active_layer
 
+    basemap = session_state.get(BASEMAP_KEY)
+    if not isinstance(basemap, str) or basemap not in AVAILABLE_BASEMAPS:
+        basemap = DEFAULT_BASEMAP
+    session_state[BASEMAP_KEY] = basemap
+
     try:
         layer_opacity = float(session_state.get(LAYER_OPACITY_KEY))
     except (TypeError, ValueError):
@@ -115,6 +131,7 @@ def read_webgis_state(
         selected_subbasin_id=session_state[SELECTED_SUBBASIN_KEY],
         view_scope=str(session_state[VIEW_SCOPE_KEY]),
         active_layer=str(session_state[ACTIVE_LAYER_KEY]),
+        basemap=str(session_state[BASEMAP_KEY]),
         layer_opacity=float(session_state[LAYER_OPACITY_KEY]),
         map_revision=int(session_state[MAP_REVISION_KEY]),
     )

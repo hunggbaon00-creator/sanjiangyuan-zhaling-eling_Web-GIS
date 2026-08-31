@@ -2,6 +2,8 @@ import unittest
 
 from app.webgis_state import (
     ACTIVE_LAYER_KEY,
+    BASEMAP_KEY,
+    DEFAULT_BASEMAP,
     DEFAULT_ACTIVE_LAYER,
     DEFAULT_LAYER_OPACITY,
     LAYER_OPACITY_KEY,
@@ -35,6 +37,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertIsNone(state.selected_subbasin_id)
         self.assertEqual(state.view_scope, OVERALL_SCOPE)
         self.assertEqual(state.active_layer, DEFAULT_ACTIVE_LAYER)
+        self.assertEqual(state.basemap, DEFAULT_BASEMAP)
         self.assertEqual(state.layer_opacity, DEFAULT_LAYER_OPACITY)
         self.assertEqual(state.map_revision, 0)
         self.assertIsNone(session_state[SUBBASIN_SELECTOR_KEY])
@@ -46,6 +49,7 @@ class WebGISStateTests(unittest.TestCase):
             SELECTED_SUBBASIN_KEY: "SB03",
             VIEW_SCOPE_KEY: OVERALL_SCOPE,
             ACTIVE_LAYER_KEY: DEFAULT_ACTIVE_LAYER,
+            BASEMAP_KEY: "terrain",
             LAYER_OPACITY_KEY: 0.35,
             MAP_REVISION_KEY: 2,
         }
@@ -57,6 +61,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.selected_subbasin_id, "SB03")
         self.assertEqual(state.view_scope, SUBBASIN_SCOPE)
         self.assertEqual(state.layer_opacity, 0.35)
+        self.assertEqual(state.basemap, "terrain")
         self.assertEqual(state.map_revision, 2)
         self.assertEqual(session_state[SUBBASIN_SELECTOR_KEY], "SB03")
 
@@ -67,6 +72,7 @@ class WebGISStateTests(unittest.TestCase):
             SELECTED_SUBBASIN_KEY: ["SB03"],
             VIEW_SCOPE_KEY: SUBBASIN_SCOPE,
             ACTIVE_LAYER_KEY: ["boundary"],
+            BASEMAP_KEY: "unknown",
             LAYER_OPACITY_KEY: 2,
             MAP_REVISION_KEY: -1,
         }
@@ -78,6 +84,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertIsNone(state.selected_subbasin_id)
         self.assertEqual(state.view_scope, OVERALL_SCOPE)
         self.assertEqual(state.active_layer, DEFAULT_ACTIVE_LAYER)
+        self.assertEqual(state.basemap, DEFAULT_BASEMAP)
         self.assertEqual(state.layer_opacity, DEFAULT_LAYER_OPACITY)
         self.assertEqual(state.map_revision, 0)
 

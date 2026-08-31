@@ -4,13 +4,24 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from branca.colormap import LinearColormap
 from folium import GeoJson, Map, TileLayer
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 
+from app.layer_system import (
+    BASEMAPS,
+    BUSINESS_LAYERS,
+    LayerContext,
+    enrich_boundary_with_year_stats,
+    resolve_layer_context,
+)
 from app.map_selection import extract_map_click, find_subbasin_at_point
 from app.statistics_scope import resolve_statistics_scope
 from app.webgis_state import (
+    ACTIVE_LAYER_KEY,
+    BASEMAP_KEY,
+    LAYER_OPACITY_KEY,
     SELECTED_METRIC_KEY,
     SELECTED_YEAR_KEY,
     SUBBASIN_SELECTOR_KEY,
@@ -210,7 +221,11 @@ def load_boundary(path: str) -> dict:
 
 
 def build_boundary_map(
-    boundary: dict, selected_subbasin_id: str | None = None
+    boundary: dict,
+    selected_subbasin_id: str | None,
+    basemap_id: str,
+    layer_context: LayerContext,
+    layer_opacity: float,
 ) -> Map:
     map_object = Map(
         location=[34.9, 97.55],
@@ -218,33 +233,56 @@ def build_boundary_map(
         control_scale=True,
         tiles=None,
     )
-    TileLayer("OpenStreetMap", name="OpenStreetMap", show=True).add_to(map_object)
-    TileLayer(
-        tiles="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-        attr="Map data © OpenStreetMap contributors, SRTM | Map style © OpenTopoMap",
-        name="地形图",
-        show=False,
-    ).add_to(map_object)
+    basemap = BASEMAPS[basemap_id]
+    tile_options = {
+        "tiles": basemap.tiles,
+        "name": basemap.label,
+        "show": True,
+    }
+    if basemap.attribution:
+        tile_options["attr"] = basemap.attribution
+    TileLayer(**tile_options).add_to(map_object)
+
+    color_scale = None
+    if layer_context.is_thematic:
+        color_scale = LinearColormap(
+            colors=list(layer_context.definition.colors),
+            vmin=layer_context.minimum,
+            vmax=layer_context.maximum,
+            caption=(
+                f"{layer_context.year}年{layer_context.definition.label}"
+                + (
+                    f"（{layer_context.definition.unit}）"
+                    if layer_context.definition.unit
+                    else ""
+                )
+            ),
+        )
+
+    def boundary_style(feature: dict) -> dict:
+        subbasin_id = feature.get("properties", {}).get("subbasin_id")
+        is_selected = subbasin_id == selected_subbasin_id
+        if color_scale is not None:
+            fill_color = color_scale(layer_context.values[subbasin_id])
+            return {
+                "color": "#FF7F0E" if is_selected else "#FFFFFF",
+                "weight": 4 if is_selected else 1.5,
+                "opacity": 1.0,
+                "fillColor": fill_color,
+                "fillOpacity": layer_opacity,
+            }
+        return {
+            "color": "#FF7F0E" if is_selected else "#D62728",
+            "weight": 4 if is_selected else 3,
+            "opacity": layer_opacity,
+            "fillColor": "#FF7F0E" if is_selected else "#D62728",
+            "fillOpacity": (0.24 if is_selected else 0.08) * layer_opacity,
+        }
 
     boundary_layer = GeoJson(
         boundary,
-        name="hybas6_v1五子流域边界",
-        style_function=lambda feature: (
-            {
-                "color": "#FF7F0E",
-                "weight": 4,
-                "fillColor": "#FF7F0E",
-                "fillOpacity": 0.28,
-            }
-            if feature.get("properties", {}).get("subbasin_id")
-            == selected_subbasin_id
-            else {
-                "color": "#D62728",
-                "weight": 3,
-                "fillColor": "#D62728",
-                "fillOpacity": 0.08,
-            }
-        ),
+        name=layer_context.definition.label,
+        style_function=boundary_style,
         highlight_function=lambda feature: {
             "color": "#FFC107",
             "weight": 5,
@@ -262,6 +300,12 @@ def build_boundary_map(
                 "hybas_id",
                 "next_down",
                 "area_km2",
+                "stats_year",
+                "stats_water_area_km2",
+                "stats_ndvi_mean",
+                "stats_mndwi_mean",
+                "stats_valid_share_pct",
+                "stats_coverage_label",
             ],
             aliases=[
                 "分区编号：",
@@ -269,12 +313,20 @@ def build_boundary_map(
                 "HYBAS ID：",
                 "下游 HYBAS ID：",
                 "矢量面积（km²）：",
+                "统计年份：",
+                "水体面积（km²）：",
+                "NDVI均值：",
+                "MNDWI均值：",
+                "有效覆盖率（%）：",
+                "覆盖等级：",
             ],
             localize=True,
             sticky=False,
         ),
     )
     boundary_layer.add_to(map_object)
+    if color_scale is not None:
+        color_scale.add_to(map_object)
     map_object.fit_bounds(boundary_layer.get_bounds())
     return map_object
 
@@ -369,6 +421,28 @@ st.sidebar.selectbox(
     on_change=synchronize_subbasin_selector,
     args=(st.session_state,),
 )
+
+st.sidebar.divider()
+st.sidebar.markdown("**地图图层**")
+st.sidebar.selectbox(
+    "底图",
+    list(BASEMAPS),
+    key=BASEMAP_KEY,
+    format_func=lambda basemap_id: BASEMAPS[basemap_id].label,
+)
+st.sidebar.selectbox(
+    "业务图层",
+    list(BUSINESS_LAYERS),
+    key=ACTIVE_LAYER_KEY,
+    format_func=lambda layer_id: BUSINESS_LAYERS[layer_id].label,
+)
+st.sidebar.slider(
+    "图层透明度",
+    min_value=0.0,
+    max_value=1.0,
+    step=0.05,
+    key=LAYER_OPACITY_KEY,
+)
 ui_state = read_webgis_state(st.session_state)
 selected_year = ui_state.selected_year
 selected_metric = ui_state.selected_metric
@@ -381,6 +455,13 @@ except ValueError as error:
     st.error(f"无法切换统计范围：{error}")
     st.stop()
 scope_data = statistics_scope.data
+try:
+    layer_context = resolve_layer_context(
+        ui_state.active_layer, subbasin_data, selected_year
+    )
+except ValueError as error:
+    st.error(f"无法加载业务图层：{error}")
+    st.stop()
 
 st.sidebar.divider()
 st.sidebar.markdown("**当前统计范围**")
@@ -447,12 +528,24 @@ with map_column:
     st.subheader("研究区范围")
     try:
         boundary_data = load_boundary(str(BOUNDARY_PATH))
+        map_boundary = enrich_boundary_with_year_stats(
+            boundary_data, subbasin_data, selected_year
+        )
         boundary_map = build_boundary_map(
-            boundary_data, ui_state.selected_subbasin_id
+            map_boundary,
+            ui_state.selected_subbasin_id,
+            ui_state.basemap,
+            layer_context,
+            ui_state.layer_opacity,
         )
         map_result = st_folium(
             boundary_map,
-            key=f"study_area_map_{ui_state.map_revision}",
+            key=(
+                f"study_area_map_{ui_state.map_revision}_{selected_year}_"
+                f"{ui_state.basemap}_{ui_state.active_layer}_"
+                f"{int(ui_state.layer_opacity * 100)}_"
+                f"{ui_state.selected_subbasin_id or 'overall'}"
+            ),
             height=500,
             width=None,
             returned_objects=["last_object_clicked"],
@@ -478,6 +571,19 @@ with map_column:
         else:
             st.caption(
                 "点击任一子流域进行选择；悬停可查看分区属性。"
+            )
+        layer_note = (
+            f"当前底图：{BASEMAPS[ui_state.basemap].label}｜"
+            f"业务图层：{layer_context.definition.label}｜"
+            f"透明度：{ui_state.layer_opacity:.0%}"
+        )
+        if layer_context.range_label:
+            layer_note += f"｜全时段色带范围：{layer_context.range_label}"
+        st.caption(layer_note)
+        if layer_context.is_thematic:
+            st.caption(
+                "专题颜色表示当前年份的子流域统计值，属于分区统计图层，"
+                "不是20 m像元级遥感栅格。"
             )
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
         st.error(f"无法加载研究区边界：{error}")

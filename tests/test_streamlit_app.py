@@ -48,6 +48,28 @@ class StreamlitAppTests(unittest.TestCase):
         self.assertIsNone(self.app.sidebar.selectbox[1].value)
         self.assertEqual(self.app.metric[0].value, "1,589.09 km²")
 
+    def test_layer_controls_switch_basemap_thematic_layer_and_opacity(self) -> None:
+        self.app.sidebar.selectbox[2].select("terrain")
+        self.app.sidebar.selectbox[3].select("water_area")
+        self.app.sidebar.slider[0].set_value(0.45)
+        self.app.run()
+
+        self.assertFalse(self.app.exception)
+        self.assertEqual(self.app.sidebar.selectbox[2].value, "terrain")
+        self.assertEqual(self.app.sidebar.selectbox[3].value, "water_area")
+        self.assertEqual(self.app.sidebar.slider[0].value, 0.45)
+        captions = [item.value for item in self.app.caption]
+        self.assertTrue(
+            any(
+                "当前底图：地形图｜业务图层：子流域水体面积｜透明度：45%"
+                in caption
+                for caption in captions
+            )
+        )
+        self.assertTrue(
+            any("不是20 m像元级遥感栅格" in caption for caption in captions)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
