@@ -8,6 +8,13 @@ from folium import GeoJson, Map, TileLayer
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 
+from app.webgis_state import (
+    SELECTED_METRIC_KEY,
+    SELECTED_YEAR_KEY,
+    initialize_webgis_state,
+    read_webgis_state,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "processed" / "zhaling_eling_yearly_stats.csv"
@@ -312,12 +319,16 @@ except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
     st.stop()
 
 years = yearly_data["year"].tolist()
-selected_year = st.sidebar.selectbox("统计年份", years, index=len(years) - 1)
-selected_metric = st.sidebar.radio(
+initialize_webgis_state(st.session_state, years, METRICS)
+st.sidebar.selectbox("统计年份", years, key=SELECTED_YEAR_KEY)
+st.sidebar.radio(
     "趋势指标",
     list(METRICS),
-    index=2,
+    key=SELECTED_METRIC_KEY,
 )
+ui_state = read_webgis_state(st.session_state)
+selected_year = ui_state.selected_year
+selected_metric = ui_state.selected_metric
 
 st.sidebar.divider()
 st.sidebar.markdown("**数据口径**")
