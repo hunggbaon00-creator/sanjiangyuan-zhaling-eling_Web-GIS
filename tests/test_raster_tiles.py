@@ -60,8 +60,18 @@ class RasterTileContractTests(unittest.TestCase):
             self.assertEqual(
                 tuple(asset.year for asset in layer.assets), EXPECTED_YEARS
             )
-            self.assertEqual({asset.status for asset in layer.assets}, {"not_generated"})
             self.assertTrue(all(asset.url_template is None for asset in layer.assets))
+        status_by_asset = {
+            (layer.id, asset.year): asset.status
+            for layer in manifest.layers
+            for asset in layer.assets
+        }
+        self.assertEqual(
+            status_by_asset[("mndwi_raster", 2024)], "processing"
+        )
+        self.assertEqual(
+            list(status_by_asset.values()).count("not_generated"), 34
+        )
 
     def test_resolves_selected_layer_year_without_fallback(self) -> None:
         manifest = load_raster_manifest(MANIFEST_PATH)

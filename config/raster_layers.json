@@ -88,7 +88,7 @@
         "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
         "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
-        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+        "2024": {"status": "processing", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "2024年MNDWI试导出已进入GEE批任务队列，任务ID：Q2XVPPSVHCI7G44D4TWPAGIP。"}
       }
     },
     {

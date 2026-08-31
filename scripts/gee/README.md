@@ -35,6 +35,22 @@ projects/careful-form-499402-d0/assets/zhaling_eling_watershed_hybas6_v1
 
 一次启动总体和五子流域两个CSV任务。总体使用五区消除内部边界后的合并几何；分区逐 Feature 计算，并分别统计相交影像数。
 
+## 2024年MNDWI栅格试导出
+
+先检查配置而不启动任务：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\gee\export_mndwi_2024_pilot.py
+```
+
+确认项目、Asset、尺度、投影和Drive目录后，只启动一个批任务：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\gee\export_mndwi_2024_pilot.py --start
+```
+
+任务输出为2024年全研究区、20 m、EPSG:3857的单波段MNDWI Cloud Optimized GeoTIFF，NoData为`-9999`。工作负载标签为`hybas6-v1-2024-mndwi-pilot`，用于在Cloud Monitoring中单独核对EECU消耗。脚本会拒绝启动同名的活动任务。
+
 ## 验证
 
 - `validate_water_thresholds_hybas6_v1.js`：2021年四阈值对比。

@@ -84,4 +84,4 @@ not_generated → processing → ready
 
 7. 启动页面，验证年份切换、图层透明度、选区边界、图例和瓦片加载。
 
-当前清单的35个图层年份资产全部为`not_generated`。因此页面只展示状态，不产生任何栅格瓦片请求，也不消耗GEE计算额度。
+当前2024年MNDWI资产已启动试导出并标记为`processing`，任务ID为`Q2XVPPSVHCI7G44D4TWPAGIP`；其余34个图层年份资产保持`not_generated`。在试导出文件完成检查、发布并晋级为`ready`前，页面只展示处理状态，不产生该资产的栅格瓦片请求。
