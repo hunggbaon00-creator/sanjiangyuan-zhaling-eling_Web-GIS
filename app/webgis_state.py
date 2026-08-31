@@ -13,6 +13,7 @@ SELECTED_SUBBASIN_KEY = "selected_subbasin_id"
 VIEW_SCOPE_KEY = "view_scope"
 ACTIVE_LAYER_KEY = "active_layer"
 LAYER_OPACITY_KEY = "layer_opacity"
+MAP_REVISION_KEY = "map_revision"
 
 OVERALL_SCOPE = "overall"
 SUBBASIN_SCOPE = "subbasin"
@@ -34,6 +35,7 @@ class WebGISState:
     view_scope: str
     active_layer: str
     layer_opacity: float
+    map_revision: int
 
 
 def _default_metric(metrics: Collection[str]) -> str:
@@ -89,6 +91,15 @@ def initialize_webgis_state(
         layer_opacity = DEFAULT_LAYER_OPACITY
     session_state[LAYER_OPACITY_KEY] = layer_opacity
 
+    map_revision = session_state.get(MAP_REVISION_KEY)
+    if (
+        isinstance(map_revision, bool)
+        or not isinstance(map_revision, int)
+        or map_revision < 0
+    ):
+        map_revision = 0
+    session_state[MAP_REVISION_KEY] = map_revision
+
     return read_webgis_state(session_state)
 
 
@@ -103,6 +114,7 @@ def read_webgis_state(
         view_scope=str(session_state[VIEW_SCOPE_KEY]),
         active_layer=str(session_state[ACTIVE_LAYER_KEY]),
         layer_opacity=float(session_state[LAYER_OPACITY_KEY]),
+        map_revision=int(session_state[MAP_REVISION_KEY]),
     )
 
 
@@ -110,6 +122,9 @@ def select_overall(session_state: MutableMapping[str, Any]) -> None:
     """Switch to the overall study-area view."""
     session_state[SELECTED_SUBBASIN_KEY] = None
     session_state[VIEW_SCOPE_KEY] = OVERALL_SCOPE
+    session_state[MAP_REVISION_KEY] = int(
+        session_state.get(MAP_REVISION_KEY, 0)
+    ) + 1
 
 
 def select_subbasin(

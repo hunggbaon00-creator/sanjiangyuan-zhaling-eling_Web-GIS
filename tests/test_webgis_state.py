@@ -5,6 +5,7 @@ from app.webgis_state import (
     DEFAULT_ACTIVE_LAYER,
     DEFAULT_LAYER_OPACITY,
     LAYER_OPACITY_KEY,
+    MAP_REVISION_KEY,
     OVERALL_SCOPE,
     SELECTED_METRIC_KEY,
     SELECTED_SUBBASIN_KEY,
@@ -33,6 +34,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.view_scope, OVERALL_SCOPE)
         self.assertEqual(state.active_layer, DEFAULT_ACTIVE_LAYER)
         self.assertEqual(state.layer_opacity, DEFAULT_LAYER_OPACITY)
+        self.assertEqual(state.map_revision, 0)
 
     def test_preserves_valid_state(self) -> None:
         session_state = {
@@ -42,6 +44,7 @@ class WebGISStateTests(unittest.TestCase):
             VIEW_SCOPE_KEY: OVERALL_SCOPE,
             ACTIVE_LAYER_KEY: DEFAULT_ACTIVE_LAYER,
             LAYER_OPACITY_KEY: 0.35,
+            MAP_REVISION_KEY: 2,
         }
 
         state = initialize_webgis_state(session_state, YEARS, METRICS)
@@ -51,6 +54,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.selected_subbasin_id, "SB03")
         self.assertEqual(state.view_scope, SUBBASIN_SCOPE)
         self.assertEqual(state.layer_opacity, 0.35)
+        self.assertEqual(state.map_revision, 2)
 
     def test_repairs_stale_state(self) -> None:
         session_state = {
@@ -60,6 +64,7 @@ class WebGISStateTests(unittest.TestCase):
             VIEW_SCOPE_KEY: SUBBASIN_SCOPE,
             ACTIVE_LAYER_KEY: ["boundary"],
             LAYER_OPACITY_KEY: 2,
+            MAP_REVISION_KEY: -1,
         }
 
         state = initialize_webgis_state(session_state, YEARS, METRICS)
@@ -70,6 +75,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.view_scope, OVERALL_SCOPE)
         self.assertEqual(state.active_layer, DEFAULT_ACTIVE_LAYER)
         self.assertEqual(state.layer_opacity, DEFAULT_LAYER_OPACITY)
+        self.assertEqual(state.map_revision, 0)
 
     def test_scope_actions_keep_selection_consistent(self) -> None:
         session_state = {}
@@ -82,6 +88,7 @@ class WebGISStateTests(unittest.TestCase):
         select_overall(session_state)
         self.assertIsNone(session_state[SELECTED_SUBBASIN_KEY])
         self.assertEqual(session_state[VIEW_SCOPE_KEY], OVERALL_SCOPE)
+        self.assertEqual(session_state[MAP_REVISION_KEY], 1)
 
     def test_rejects_unknown_subbasin(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown subbasin_id"):

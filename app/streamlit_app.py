@@ -8,11 +8,14 @@ from folium import GeoJson, Map, TileLayer
 from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 
+from app.map_selection import extract_map_click, find_subbasin_at_point
 from app.webgis_state import (
     SELECTED_METRIC_KEY,
     SELECTED_YEAR_KEY,
     initialize_webgis_state,
     read_webgis_state,
+    select_overall,
+    select_subbasin,
 )
 
 
@@ -203,7 +206,9 @@ def load_boundary(path: str) -> dict:
     return boundary
 
 
-def build_boundary_map(boundary: dict) -> Map:
+def build_boundary_map(
+    boundary: dict, selected_subbasin_id: str | None = None
+) -> Map:
     map_object = Map(
         location=[34.9, 97.55],
         zoom_start=7,
@@ -221,16 +226,31 @@ def build_boundary_map(boundary: dict) -> Map:
     boundary_layer = GeoJson(
         boundary,
         name="hybas6_v1五子流域边界",
-        style_function=lambda _: {
-            "color": "#D62728",
-            "weight": 3,
-            "fillColor": "#D62728",
-            "fillOpacity": 0.08,
-        },
-        highlight_function=lambda _: {
-            "color": "#FF7F0E",
-            "weight": 4,
-            "fillOpacity": 0.12,
+        style_function=lambda feature: (
+            {
+                "color": "#FF7F0E",
+                "weight": 4,
+                "fillColor": "#FF7F0E",
+                "fillOpacity": 0.28,
+            }
+            if feature.get("properties", {}).get("subbasin_id")
+            == selected_subbasin_id
+            else {
+                "color": "#D62728",
+                "weight": 3,
+                "fillColor": "#D62728",
+                "fillOpacity": 0.08,
+            }
+        ),
+        highlight_function=lambda feature: {
+            "color": "#FFC107",
+            "weight": 5,
+            "fillOpacity": (
+                0.32
+                if feature.get("properties", {}).get("subbasin_id")
+                == selected_subbasin_id
+                else 0.16
+            ),
         },
         tooltip=GeoJsonTooltip(
             fields=[
@@ -331,6 +351,22 @@ selected_year = ui_state.selected_year
 selected_metric = ui_state.selected_metric
 
 st.sidebar.divider()
+st.sidebar.markdown("**当前地图选区**")
+if ui_state.selected_subbasin_id:
+    selected_name_rows = subbasin_data.loc[
+        subbasin_data["subbasin_id"] == ui_state.selected_subbasin_id,
+        "subbasin_name",
+    ]
+    selected_name = selected_name_rows.iloc[0]
+    st.sidebar.caption(f"{ui_state.selected_subbasin_id} · {selected_name}")
+    if st.sidebar.button("返回总体", use_container_width=True):
+        select_overall(st.session_state)
+        st.rerun()
+else:
+    st.sidebar.caption("总体研究区")
+st.sidebar.caption("本阶段地图选区仅用于高亮；统计仍保持总体口径。")
+
+st.sidebar.divider()
 st.sidebar.markdown("**数据口径**")
 st.sidebar.caption(
     "Sentinel-2 SR Harmonized\n\n"
@@ -375,11 +411,38 @@ with map_column:
     st.subheader("研究区范围")
     try:
         boundary_data = load_boundary(str(BOUNDARY_PATH))
-        boundary_map = build_boundary_map(boundary_data)
-        st_folium(boundary_map, height=500, width=None)
-        st.caption(
-            "当前显示hybas6_v1的5个HydroBASINS六级子流域；悬停可查看分区属性。"
+        boundary_map = build_boundary_map(
+            boundary_data, ui_state.selected_subbasin_id
         )
+        map_result = st_folium(
+            boundary_map,
+            key=f"study_area_map_{ui_state.map_revision}",
+            height=500,
+            width=None,
+            returned_objects=["last_object_clicked"],
+            use_container_width=True,
+        )
+        clicked_point = extract_map_click(map_result)
+        if clicked_point:
+            clicked_subbasin = find_subbasin_at_point(
+                boundary_data, *clicked_point
+            )
+            if (
+                clicked_subbasin
+                and clicked_subbasin != ui_state.selected_subbasin_id
+            ):
+                select_subbasin(st.session_state, clicked_subbasin)
+                st.rerun()
+
+        if ui_state.selected_subbasin_id:
+            st.caption(
+                f"已选择 {ui_state.selected_subbasin_id}；橙色区域为当前选区。"
+                "可继续点击其他子流域，或在侧栏返回总体。"
+            )
+        else:
+            st.caption(
+                "点击任一子流域进行选择；悬停可查看分区属性。"
+            )
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
         st.error(f"无法加载研究区边界：{error}")
 
