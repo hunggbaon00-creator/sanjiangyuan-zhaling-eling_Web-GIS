@@ -1,0 +1,143 @@
+{
+  "schema_file": "raster_layers.schema.json",
+  "contract_version": "1.0.0",
+  "dataset_version": "hybas6_v1_t000",
+  "tile_scheme": "xyz",
+  "crs": "EPSG:3857",
+  "bounds": [95.90833420357303, 33.94583428316831, 98.82083175391062, 35.47535499778],
+  "min_zoom": 5,
+  "max_zoom": 13,
+  "years": [2018, 2019, 2020, 2021, 2022, 2023, 2024],
+  "processing": {
+    "collection_id": "COPERNICUS/S2_SR_HARMONIZED",
+    "season_start": "06-01",
+    "season_end_exclusive": "10-01",
+    "composite": "median",
+    "cloud_mask": "SCL_exclude_3_8_9_10_11",
+    "scale_m": 20,
+    "roi_version": "hybas6_v1",
+    "water_threshold": 0.0
+  },
+  "layers": [
+    {
+      "id": "true_color_raster",
+      "label": "年度真彩色",
+      "description": "生长季SCL掩膜后年度中位数合成的B4/B3/B2真彩色图层。",
+      "data_type": "rgb",
+      "attribution": "Sentinel-2 SR Harmonized / Copernicus",
+      "rendering": {
+        "mode": "rgb",
+        "min": 0,
+        "max": 3000,
+        "palette": [],
+        "bands": ["B4", "B3", "B2"],
+        "nodata_transparent": true
+      },
+      "assets": {
+        "2018": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2019": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2020": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+      }
+    },
+    {
+      "id": "ndvi_raster",
+      "label": "年度NDVI",
+      "description": "年度中位数合成影像计算的NDVI像元级图层。",
+      "data_type": "continuous",
+      "attribution": "Sentinel-2 SR Harmonized / Copernicus",
+      "rendering": {
+        "mode": "continuous",
+        "min": -0.2,
+        "max": 0.8,
+        "palette": ["#8C510A", "#FFD54F", "#1B7837"],
+        "bands": ["NDVI"],
+        "nodata_transparent": true
+      },
+      "assets": {
+        "2018": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2019": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2020": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+      }
+    },
+    {
+      "id": "mndwi_raster",
+      "label": "年度MNDWI",
+      "description": "年度中位数合成影像计算的MNDWI像元级图层。",
+      "data_type": "continuous",
+      "attribution": "Sentinel-2 SR Harmonized / Copernicus",
+      "rendering": {
+        "mode": "continuous",
+        "min": -0.5,
+        "max": 0.5,
+        "palette": ["#8C510A", "#FFFFFF", "#2166AC"],
+        "bands": ["MNDWI"],
+        "nodata_transparent": true
+      },
+      "assets": {
+        "2018": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2019": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2020": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+      }
+    },
+    {
+      "id": "water_mask_raster",
+      "label": "年度水体掩膜",
+      "description": "MNDWI大于0.0的年度像元级水体掩膜。",
+      "data_type": "binary",
+      "attribution": "Sentinel-2 SR Harmonized / Copernicus",
+      "rendering": {
+        "mode": "binary",
+        "min": 0,
+        "max": 1,
+        "palette": ["#0000FF"],
+        "bands": ["water"],
+        "nodata_transparent": true
+      },
+      "assets": {
+        "2018": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2019": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2020": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+      }
+    },
+    {
+      "id": "valid_observation_raster",
+      "label": "年度有效观测掩膜",
+      "description": "年度MNDWI合成结果的有效像元掩膜。",
+      "data_type": "binary",
+      "attribution": "Sentinel-2 SR Harmonized / Copernicus",
+      "rendering": {
+        "mode": "binary",
+        "min": 0,
+        "max": 1,
+        "palette": ["#00C853"],
+        "bands": ["valid"],
+        "nodata_transparent": true
+      },
+      "assets": {
+        "2018": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2019": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2020": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2021": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2022": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2023": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"},
+        "2024": {"status": "not_generated", "url_template": null, "generated_at": null, "source_checksum_sha256": null, "asset_version": null, "notes": "等待正式生产。"}
+      }
+    }
+  ]
+}

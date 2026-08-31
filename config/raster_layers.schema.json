@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sanjiangyuan:raster-layers:1.0.0",
+  "title": "Annual raster XYZ tile manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_file",
+    "contract_version",
+    "dataset_version",
+    "tile_scheme",
+    "crs",
+    "bounds",
+    "min_zoom",
+    "max_zoom",
+    "years",
+    "processing",
+    "layers"
+  ],
+  "properties": {
+    "schema_file": {"const": "raster_layers.schema.json"},
+    "contract_version": {"const": "1.0.0"},
+    "dataset_version": {"const": "hybas6_v1_t000"},
+    "tile_scheme": {"const": "xyz"},
+    "crs": {"const": "EPSG:3857"},
+    "bounds": {
+      "const": [95.90833420357303, 33.94583428316831, 98.82083175391062, 35.47535499778]
+    },
+    "min_zoom": {"const": 5},
+    "max_zoom": {"const": 13},
+    "years": {
+      "const": [2018, 2019, 2020, 2021, 2022, 2023, 2024]
+    },
+    "processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection_id",
+        "season_start",
+        "season_end_exclusive",
+        "composite",
+        "cloud_mask",
+        "scale_m",
+        "roi_version",
+        "water_threshold"
+      ],
+      "properties": {
+        "collection_id": {"const": "COPERNICUS/S2_SR_HARMONIZED"},
+        "season_start": {"const": "06-01"},
+        "season_end_exclusive": {"const": "10-01"},
+        "composite": {"const": "median"},
+        "cloud_mask": {"const": "SCL_exclude_3_8_9_10_11"},
+        "scale_m": {"const": 20},
+        "roi_version": {"const": "hybas6_v1"},
+        "water_threshold": {"const": 0.0}
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/layer"}
+    }
+  },
+  "$defs": {
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "description",
+        "data_type",
+        "attribution",
+        "rendering",
+        "assets"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "label": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "data_type": {"enum": ["rgb", "continuous", "binary"]},
+        "attribution": {"type": "string", "minLength": 1},
+        "rendering": {"$ref": "#/$defs/rendering"},
+        "assets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["2018", "2019", "2020", "2021", "2022", "2023", "2024"],
+          "properties": {
+            "2018": {"$ref": "#/$defs/asset"},
+            "2019": {"$ref": "#/$defs/asset"},
+            "2020": {"$ref": "#/$defs/asset"},
+            "2021": {"$ref": "#/$defs/asset"},
+            "2022": {"$ref": "#/$defs/asset"},
+            "2023": {"$ref": "#/$defs/asset"},
+            "2024": {"$ref": "#/$defs/asset"}
+          }
+        }
+      }
+    },
+    "rendering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "min", "max", "palette", "bands", "nodata_transparent"],
+      "properties": {
+        "mode": {"enum": ["rgb", "continuous", "binary"]},
+        "min": {"type": "number"},
+        "max": {"type": "number"},
+        "palette": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"}
+        },
+        "bands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "nodata_transparent": {"type": "boolean"}
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "url_template",
+        "generated_at",
+        "source_checksum_sha256",
+        "asset_version",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["not_generated", "processing", "ready", "failed", "unavailable"]
+        },
+        "url_template": {"type": ["string", "null"]},
+        "generated_at": {"type": ["string", "null"], "format": "date-time"},
+        "source_checksum_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "asset_version": {"type": ["string", "null"]},
+        "notes": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

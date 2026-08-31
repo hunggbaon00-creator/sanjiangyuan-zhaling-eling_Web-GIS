@@ -70,6 +70,19 @@ class StreamlitAppTests(unittest.TestCase):
             any("不是20 m像元级遥感栅格" in caption for caption in captions)
         )
 
+    def test_unavailable_raster_selection_never_uses_fallback_tiles(self) -> None:
+        self.app.sidebar.selectbox[4].select("ndvi_raster").run()
+
+        self.assertFalse(self.app.exception)
+        self.assertEqual(self.app.sidebar.selectbox[4].value, "ndvi_raster")
+        messages = [item.value for item in self.app.info]
+        self.assertTrue(
+            any("2024年年度NDVI：未生成" in message for message in messages)
+        )
+        self.assertTrue(
+            any("地图保持使用本地正式矢量与统计图层" in message for message in messages)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

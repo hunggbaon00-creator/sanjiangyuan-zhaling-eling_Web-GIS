@@ -17,11 +17,17 @@ from app.layer_system import (
     resolve_layer_context,
 )
 from app.map_selection import extract_map_click, find_subbasin_at_point
+from app.raster_tiles import (
+    build_raster_tile_options,
+    load_raster_manifest,
+    resolve_raster_selection,
+)
 from app.statistics_scope import resolve_statistics_scope
 from app.webgis_state import (
     ACTIVE_LAYER_KEY,
     BASEMAP_KEY,
     LAYER_OPACITY_KEY,
+    RASTER_LAYER_KEY,
     SELECTED_METRIC_KEY,
     SELECTED_YEAR_KEY,
     SUBBASIN_SELECTOR_KEY,
@@ -47,6 +53,7 @@ BOUNDARY_PATH = (
     / "boundaries"
     / "zhaling_eling_watershed_hybas6_v1.geojson"
 )
+RASTER_MANIFEST_PATH = PROJECT_ROOT / "config" / "raster_layers.json"
 
 REQUIRED_COLUMNS = {
     "year",
@@ -226,6 +233,7 @@ def build_boundary_map(
     basemap_id: str,
     layer_context: LayerContext,
     layer_opacity: float,
+    raster_tile_options: dict | None,
 ) -> Map:
     map_object = Map(
         location=[34.9, 97.55],
@@ -242,6 +250,9 @@ def build_boundary_map(
     if basemap.attribution:
         tile_options["attr"] = basemap.attribution
     TileLayer(**tile_options).add_to(map_object)
+
+    if raster_tile_options:
+        TileLayer(**raster_tile_options).add_to(map_object)
 
     color_scale = None
     if layer_context.is_thematic:
@@ -389,12 +400,18 @@ st.caption("基于Google Earth Engine与WebGIS的年度统计可视化原型")
 try:
     yearly_data = load_yearly_stats(str(DATA_PATH))
     subbasin_data = load_subbasin_stats(str(SUBBASIN_DATA_PATH))
+    raster_manifest = load_raster_manifest(RASTER_MANIFEST_PATH)
 except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
-    st.error(f"无法读取正式hybas6_v1数据：{error}")
+    st.error(f"无法读取正式数据或栅格瓦片契约：{error}")
     st.stop()
 
 years = yearly_data["year"].tolist()
-initialize_webgis_state(st.session_state, years, METRICS)
+initialize_webgis_state(
+    st.session_state,
+    years,
+    METRICS,
+    raster_layers=raster_manifest.layer_ids,
+)
 st.sidebar.selectbox("统计年份", years, key=SELECTED_YEAR_KEY)
 st.sidebar.radio(
     "趋势指标",
@@ -436,6 +453,20 @@ st.sidebar.selectbox(
     key=ACTIVE_LAYER_KEY,
     format_func=lambda layer_id: BUSINESS_LAYERS[layer_id].label,
 )
+st.sidebar.selectbox(
+    "栅格瓦片",
+    [None, *raster_manifest.layer_ids],
+    key=RASTER_LAYER_KEY,
+    format_func=lambda layer_id: (
+        "不显示"
+        if layer_id is None
+        else raster_manifest.get_layer(layer_id).label
+    ),
+)
+st.sidebar.caption(
+    f"瓦片契约 {raster_manifest.contract_version}｜"
+    f"数据版本 {raster_manifest.dataset_version}"
+)
 st.sidebar.slider(
     "图层透明度",
     min_value=0.0,
@@ -462,6 +493,21 @@ try:
 except ValueError as error:
     st.error(f"无法加载业务图层：{error}")
     st.stop()
+try:
+    raster_selection = resolve_raster_selection(
+        raster_manifest, ui_state.raster_layer_id, selected_year
+    )
+except ValueError as error:
+    st.error(f"无法解析栅格瓦片：{error}")
+    st.stop()
+raster_tile_options = build_raster_tile_options(
+    raster_manifest, raster_selection, ui_state.layer_opacity
+)
+if raster_selection:
+    st.sidebar.caption(
+        f"{selected_year}年{raster_selection.layer.label}："
+        f"{raster_selection.asset.status_label}"
+    )
 
 st.sidebar.divider()
 st.sidebar.markdown("**当前统计范围**")
@@ -537,6 +583,7 @@ with map_column:
             ui_state.basemap,
             layer_context,
             ui_state.layer_opacity,
+            raster_tile_options,
         )
         map_result = st_folium(
             boundary_map,
@@ -544,7 +591,9 @@ with map_column:
                 f"study_area_map_{ui_state.map_revision}_{selected_year}_"
                 f"{ui_state.basemap}_{ui_state.active_layer}_"
                 f"{int(ui_state.layer_opacity * 100)}_"
-                f"{ui_state.selected_subbasin_id or 'overall'}"
+                f"{ui_state.selected_subbasin_id or 'overall'}_"
+                f"{ui_state.raster_layer_id or 'no_raster'}_"
+                f"{raster_selection.asset.status if raster_selection else 'none'}"
             ),
             height=500,
             width=None,
@@ -585,6 +634,20 @@ with map_column:
                 "专题颜色表示当前年份的子流域统计值，属于分区统计图层，"
                 "不是20 m像元级遥感栅格。"
             )
+        if raster_selection:
+            raster_note = (
+                f"{selected_year}年{raster_selection.layer.label}："
+                f"{raster_selection.asset.status_label}。"
+            )
+            if raster_selection.asset.is_ready:
+                st.caption(
+                    raster_note
+                    + f"资产版本：{raster_selection.asset.asset_version}。"
+                )
+            elif raster_selection.asset.status == "failed":
+                st.error(raster_note + "地图未加载该瓦片。")
+            else:
+                st.info(raster_note + "地图保持使用本地正式矢量与统计图层。")
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as error:
         st.error(f"无法加载研究区边界：{error}")
 

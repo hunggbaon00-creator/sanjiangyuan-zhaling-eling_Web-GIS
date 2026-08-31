@@ -22,6 +22,7 @@ VIEW_SCOPE_KEY = "view_scope"
 ACTIVE_LAYER_KEY = "active_layer"
 BASEMAP_KEY = "basemap"
 LAYER_OPACITY_KEY = "layer_opacity"
+RASTER_LAYER_KEY = "raster_layer_id"
 MAP_REVISION_KEY = "map_revision"
 
 OVERALL_SCOPE = "overall"
@@ -47,6 +48,7 @@ class WebGISState:
     active_layer: str
     basemap: str
     layer_opacity: float
+    raster_layer_id: str | None
     map_revision: int
 
 
@@ -60,6 +62,7 @@ def initialize_webgis_state(
     session_state: MutableMapping[str, Any],
     years: Sequence[int],
     metrics: Collection[str],
+    raster_layers: Collection[str] = (),
 ) -> WebGISState:
     """Initialize state defaults and repair stale or invalid selections."""
     normalized_years = sorted({int(year) for year in years})
@@ -109,6 +112,15 @@ def initialize_webgis_state(
         layer_opacity = DEFAULT_LAYER_OPACITY
     session_state[LAYER_OPACITY_KEY] = layer_opacity
 
+    available_raster_layers = frozenset(raster_layers)
+    raster_layer_id = session_state.get(RASTER_LAYER_KEY)
+    if (
+        not isinstance(raster_layer_id, str)
+        or raster_layer_id not in available_raster_layers
+    ):
+        raster_layer_id = None
+    session_state[RASTER_LAYER_KEY] = raster_layer_id
+
     map_revision = session_state.get(MAP_REVISION_KEY)
     if (
         isinstance(map_revision, bool)
@@ -133,6 +145,7 @@ def read_webgis_state(
         active_layer=str(session_state[ACTIVE_LAYER_KEY]),
         basemap=str(session_state[BASEMAP_KEY]),
         layer_opacity=float(session_state[LAYER_OPACITY_KEY]),
+        raster_layer_id=session_state[RASTER_LAYER_KEY],
         map_revision=int(session_state[MAP_REVISION_KEY]),
     )
 

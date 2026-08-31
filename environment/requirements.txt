@@ -4,5 +4,6 @@ branca
 streamlit-folium
 plotly
 pandas
+jsonschema
 earthengine-api
 geemap
