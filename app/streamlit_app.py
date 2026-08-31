@@ -9,13 +9,16 @@ from folium.features import GeoJsonTooltip
 from streamlit_folium import st_folium
 
 from app.map_selection import extract_map_click, find_subbasin_at_point
+from app.statistics_scope import resolve_statistics_scope
 from app.webgis_state import (
     SELECTED_METRIC_KEY,
     SELECTED_YEAR_KEY,
+    SUBBASIN_SELECTOR_KEY,
     initialize_webgis_state,
     read_webgis_state,
     select_overall,
     select_subbasin,
+    synchronize_subbasin_selector,
 )
 
 
@@ -105,13 +108,13 @@ COVERAGE_LABELS = {
 METRICS = {
     "NDVI均值": {
         "column": "ndvi_mean",
-        "axis": "研究区NDVI均值",
+        "axis": "NDVI均值",
         "color": "#2E8B57",
         "format": ".4f",
     },
     "MNDWI均值": {
         "column": "mndwi_mean",
-        "axis": "研究区MNDWI均值",
+        "axis": "MNDWI均值",
         "color": "#2878B5",
         "format": ".4f",
     },
@@ -346,25 +349,49 @@ st.sidebar.radio(
     list(METRICS),
     key=SELECTED_METRIC_KEY,
 )
+
+subbasin_names = (
+    subbasin_data[["subbasin_id", "subbasin_name"]]
+    .drop_duplicates()
+    .set_index("subbasin_id")["subbasin_name"]
+    .to_dict()
+)
+subbasin_options = [None, *sorted(subbasin_names)]
+st.sidebar.selectbox(
+    "统计范围 / 地图选区",
+    subbasin_options,
+    key=SUBBASIN_SELECTOR_KEY,
+    format_func=lambda subbasin_id: (
+        "总体研究区"
+        if subbasin_id is None
+        else f"{subbasin_id} · {subbasin_names[subbasin_id]}"
+    ),
+    on_change=synchronize_subbasin_selector,
+    args=(st.session_state,),
+)
 ui_state = read_webgis_state(st.session_state)
 selected_year = ui_state.selected_year
 selected_metric = ui_state.selected_metric
 
+try:
+    statistics_scope = resolve_statistics_scope(
+        yearly_data, subbasin_data, ui_state.selected_subbasin_id
+    )
+except ValueError as error:
+    st.error(f"无法切换统计范围：{error}")
+    st.stop()
+scope_data = statistics_scope.data
+
 st.sidebar.divider()
-st.sidebar.markdown("**当前地图选区**")
+st.sidebar.markdown("**当前统计范围**")
 if ui_state.selected_subbasin_id:
-    selected_name_rows = subbasin_data.loc[
-        subbasin_data["subbasin_id"] == ui_state.selected_subbasin_id,
-        "subbasin_name",
-    ]
-    selected_name = selected_name_rows.iloc[0]
-    st.sidebar.caption(f"{ui_state.selected_subbasin_id} · {selected_name}")
+    st.sidebar.caption(statistics_scope.label)
     if st.sidebar.button("返回总体", use_container_width=True):
         select_overall(st.session_state)
         st.rerun()
 else:
     st.sidebar.caption("总体研究区")
-st.sidebar.caption("本阶段地图选区仅用于高亮；统计仍保持总体口径。")
+st.sidebar.caption("地图、指标卡、趋势图和明细表使用同一统计范围。")
 
 st.sidebar.divider()
 st.sidebar.markdown("**数据口径**")
@@ -376,7 +403,9 @@ st.sidebar.caption(
     "ROI：hybas6_v1（5个六级子流域）"
 )
 
-current = yearly_data.loc[yearly_data["year"] == selected_year].iloc[0]
+current = scope_data.loc[scope_data["year"] == selected_year].iloc[0]
+
+st.caption(f"当前统计范围：{statistics_scope.label}")
 
 metric_columns = st.columns(4)
 metric_columns[0].metric("水体面积", f"{current['water_area_km2']:,.2f} km²")
@@ -385,7 +414,10 @@ metric_columns[2].metric("MNDWI均值", f"{current['mndwi_mean']:.4f}")
 metric_columns[3].metric(
     "有效覆盖率",
     f"{current['valid_share']:.2%}",
-    help="有效MNDWI像元面积占研究区栅格口径面积的比例。",
+    help=(
+        "有效MNDWI像元面积占当前统计范围栅格口径面积的比例；"
+        f"当前范围面积为 {current[statistics_scope.area_column]:,.2f} km²。"
+    ),
 )
 
 st.caption(
@@ -393,16 +425,20 @@ st.caption(
     f"覆盖等级：{current['coverage_label']}。"
 )
 
-if current["coverage_flag"] == "low":
+if (
+    statistics_scope.is_overall
+    and selected_year == 2018
+    and current["coverage_flag"] == "low"
+):
     st.warning(
         f"{selected_year}年有效覆盖率仅为 {current['valid_share']:.2%}。"
         "该年度正式Sentinel-2水体面积可能约低估2%，应结合Landsat 8独立验证结果解释，"
         "不宜与高覆盖年份等权比较。"
     )
-elif current["coverage_flag"] == "medium":
+elif current["coverage_flag"] in {"low", "medium"}:
     st.warning(
         f"{selected_year}年有效覆盖率为 {current['valid_share']:.2%}，"
-        "进行跨年比较时应注意覆盖差异。"
+        f"覆盖等级为{current['coverage_label']}；进行跨年比较时应注意覆盖差异。"
     )
 
 map_column, chart_column = st.columns([1.1, 1])
@@ -447,13 +483,13 @@ with map_column:
         st.error(f"无法加载研究区边界：{error}")
 
 with chart_column:
-    st.subheader(f"2018—2024年{selected_metric}趋势")
-    trend_chart = build_trend_chart(yearly_data, selected_metric)
+    st.subheader(f"{statistics_scope.label} 2018—2024年{selected_metric}趋势")
+    trend_chart = build_trend_chart(scope_data, selected_metric)
     st.plotly_chart(trend_chart, width="stretch")
     st.caption("橙色菱形表示有效覆盖率低于95%的年份。")
 
-with st.expander("查看年度统计明细"):
-    detail_data = yearly_data[
+with st.expander(f"查看{statistics_scope.label}年度统计明细"):
+    detail_data = scope_data[
         [
             "year",
             "image_count",
@@ -491,7 +527,7 @@ with st.expander("查看年度统计明细"):
         },
     )
 
-with st.expander(f"查看{selected_year}年五子流域统计"):
+with st.expander(f"对比{selected_year}年五子流域统计"):
     selected_subbasins = subbasin_data.loc[
         subbasin_data["year"] == selected_year,
         [
@@ -515,6 +551,15 @@ with st.expander(f"查看{selected_year}年五子流域统计"):
             "valid_share": "有效覆盖率",
             "coverage_label": "覆盖等级",
         }
+    )
+    selected_subbasins.insert(
+        0,
+        "当前选区",
+        selected_subbasins["分区编号"].map(
+            lambda subbasin_id: (
+                "●" if subbasin_id == ui_state.selected_subbasin_id else ""
+            )
+        ),
     )
     selected_subbasins["有效覆盖率"] *= 100
     st.dataframe(

@@ -11,10 +11,12 @@ from app.webgis_state import (
     SELECTED_SUBBASIN_KEY,
     SELECTED_YEAR_KEY,
     SUBBASIN_SCOPE,
+    SUBBASIN_SELECTOR_KEY,
     VIEW_SCOPE_KEY,
     initialize_webgis_state,
     select_overall,
     select_subbasin,
+    synchronize_subbasin_selector,
 )
 
 
@@ -35,6 +37,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.active_layer, DEFAULT_ACTIVE_LAYER)
         self.assertEqual(state.layer_opacity, DEFAULT_LAYER_OPACITY)
         self.assertEqual(state.map_revision, 0)
+        self.assertIsNone(session_state[SUBBASIN_SELECTOR_KEY])
 
     def test_preserves_valid_state(self) -> None:
         session_state = {
@@ -55,6 +58,7 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(state.view_scope, SUBBASIN_SCOPE)
         self.assertEqual(state.layer_opacity, 0.35)
         self.assertEqual(state.map_revision, 2)
+        self.assertEqual(session_state[SUBBASIN_SELECTOR_KEY], "SB03")
 
     def test_repairs_stale_state(self) -> None:
         session_state = {
@@ -90,9 +94,36 @@ class WebGISStateTests(unittest.TestCase):
         self.assertEqual(session_state[VIEW_SCOPE_KEY], OVERALL_SCOPE)
         self.assertEqual(session_state[MAP_REVISION_KEY], 1)
 
+    def test_map_selection_is_reflected_by_sidebar_on_rerun(self) -> None:
+        session_state = {}
+        initialize_webgis_state(session_state, YEARS, METRICS)
+
+        select_subbasin(session_state, "SB05")
+        initialize_webgis_state(session_state, YEARS, METRICS)
+
+        self.assertEqual(session_state[SELECTED_SUBBASIN_KEY], "SB05")
+        self.assertEqual(session_state[SUBBASIN_SELECTOR_KEY], "SB05")
+        self.assertEqual(session_state[VIEW_SCOPE_KEY], SUBBASIN_SCOPE)
+
     def test_rejects_unknown_subbasin(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown subbasin_id"):
             select_subbasin({}, "SB99")
+
+    def test_sidebar_selector_updates_scope_and_resets_map_event(self) -> None:
+        session_state = {}
+        initialize_webgis_state(session_state, YEARS, METRICS)
+
+        session_state[SUBBASIN_SELECTOR_KEY] = "SB03"
+        synchronize_subbasin_selector(session_state)
+        self.assertEqual(session_state[SELECTED_SUBBASIN_KEY], "SB03")
+        self.assertEqual(session_state[VIEW_SCOPE_KEY], SUBBASIN_SCOPE)
+        self.assertEqual(session_state[MAP_REVISION_KEY], 1)
+
+        session_state[SUBBASIN_SELECTOR_KEY] = None
+        synchronize_subbasin_selector(session_state)
+        self.assertIsNone(session_state[SELECTED_SUBBASIN_KEY])
+        self.assertEqual(session_state[VIEW_SCOPE_KEY], OVERALL_SCOPE)
+        self.assertEqual(session_state[MAP_REVISION_KEY], 2)
 
     def test_requires_years_and_metrics(self) -> None:
         with self.assertRaisesRegex(ValueError, "statistics year"):

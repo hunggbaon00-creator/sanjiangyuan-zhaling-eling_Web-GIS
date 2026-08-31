@@ -10,6 +10,7 @@ from typing import Any
 SELECTED_YEAR_KEY = "selected_year"
 SELECTED_METRIC_KEY = "selected_metric"
 SELECTED_SUBBASIN_KEY = "selected_subbasin_id"
+SUBBASIN_SELECTOR_KEY = "subbasin_selector"
 VIEW_SCOPE_KEY = "view_scope"
 ACTIVE_LAYER_KEY = "active_layer"
 LAYER_OPACITY_KEY = "layer_opacity"
@@ -74,6 +75,7 @@ def initialize_webgis_state(
     ):
         selected_subbasin = None
     session_state[SELECTED_SUBBASIN_KEY] = selected_subbasin
+    session_state[SUBBASIN_SELECTOR_KEY] = selected_subbasin
     session_state[VIEW_SCOPE_KEY] = (
         SUBBASIN_SCOPE if selected_subbasin else OVERALL_SCOPE
     )
@@ -122,9 +124,7 @@ def select_overall(session_state: MutableMapping[str, Any]) -> None:
     """Switch to the overall study-area view."""
     session_state[SELECTED_SUBBASIN_KEY] = None
     session_state[VIEW_SCOPE_KEY] = OVERALL_SCOPE
-    session_state[MAP_REVISION_KEY] = int(
-        session_state.get(MAP_REVISION_KEY, 0)
-    ) + 1
+    _advance_map_revision(session_state)
 
 
 def select_subbasin(
@@ -135,3 +135,28 @@ def select_subbasin(
         raise ValueError(f"Unknown subbasin_id: {subbasin_id}")
     session_state[SELECTED_SUBBASIN_KEY] = subbasin_id
     session_state[VIEW_SCOPE_KEY] = SUBBASIN_SCOPE
+
+
+def synchronize_subbasin_selector(
+    session_state: MutableMapping[str, Any],
+) -> None:
+    """Apply a sidebar scope change and discard any stale map click."""
+    selected_subbasin = session_state.get(SUBBASIN_SELECTOR_KEY)
+    if selected_subbasin is None:
+        select_overall(session_state)
+        return
+    if not isinstance(selected_subbasin, str):
+        raise ValueError("Subbasin selector value must be a string or None.")
+    select_subbasin(session_state, selected_subbasin)
+    _advance_map_revision(session_state)
+
+
+def _advance_map_revision(session_state: MutableMapping[str, Any]) -> None:
+    current_revision = session_state.get(MAP_REVISION_KEY, 0)
+    if (
+        isinstance(current_revision, bool)
+        or not isinstance(current_revision, int)
+        or current_revision < 0
+    ):
+        current_revision = 0
+    session_state[MAP_REVISION_KEY] = current_revision + 1
