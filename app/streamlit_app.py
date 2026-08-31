@@ -145,8 +145,9 @@ METRICS = {
 }
 
 
-@st.cache_data
-def load_yearly_stats(path: str) -> pd.DataFrame:
+@st.cache_data(show_spinner=False)
+def load_yearly_stats(path: str, revision: int) -> pd.DataFrame:
+    del revision
     data = pd.read_csv(path)
     missing_columns = REQUIRED_COLUMNS.difference(data.columns)
     if missing_columns:
@@ -180,8 +181,9 @@ def load_yearly_stats(path: str) -> pd.DataFrame:
     return data.sort_values("year").reset_index(drop=True)
 
 
-@st.cache_data
-def load_subbasin_stats(path: str) -> pd.DataFrame:
+@st.cache_data(show_spinner=False)
+def load_subbasin_stats(path: str, revision: int) -> pd.DataFrame:
+    del revision
     data = pd.read_csv(path)
     missing_columns = SUBBASIN_REQUIRED_COLUMNS.difference(data.columns)
     if missing_columns:
@@ -210,8 +212,9 @@ def load_subbasin_stats(path: str) -> pd.DataFrame:
     return data.sort_values(["year", "subbasin_id"]).reset_index(drop=True)
 
 
-@st.cache_data
-def load_boundary(path: str) -> dict:
+@st.cache_data(show_spinner=False)
+def load_boundary(path: str, revision: int) -> dict:
+    del revision
     with Path(path).open("r", encoding="utf-8") as file:
         boundary = json.load(file)
     if boundary.get("type") != "FeatureCollection" or not boundary.get("features"):
@@ -225,6 +228,12 @@ def load_boundary(path: str) -> dict:
     if subbasin_ids != {"SB01", "SB02", "SB03", "SB04", "SB05"}:
         raise ValueError("hybas6_v1边界的子流域编号不完整。")
     return boundary
+
+
+@st.cache_data(show_spinner=False)
+def load_raster_tile_manifest(path: str, revision: int):
+    del revision
+    return load_raster_manifest(path)
 
 
 def build_boundary_map(
@@ -398,9 +407,15 @@ st.title("三江源扎陵湖—鄂陵湖植被与水体监测")
 st.caption("基于Google Earth Engine与WebGIS的年度统计可视化原型")
 
 try:
-    yearly_data = load_yearly_stats(str(DATA_PATH))
-    subbasin_data = load_subbasin_stats(str(SUBBASIN_DATA_PATH))
-    raster_manifest = load_raster_manifest(RASTER_MANIFEST_PATH)
+    yearly_data = load_yearly_stats(
+        str(DATA_PATH), DATA_PATH.stat().st_mtime_ns
+    )
+    subbasin_data = load_subbasin_stats(
+        str(SUBBASIN_DATA_PATH), SUBBASIN_DATA_PATH.stat().st_mtime_ns
+    )
+    raster_manifest = load_raster_tile_manifest(
+        str(RASTER_MANIFEST_PATH), RASTER_MANIFEST_PATH.stat().st_mtime_ns
+    )
 except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
     st.error(f"无法读取正式数据或栅格瓦片契约：{error}")
     st.stop()
@@ -573,7 +588,9 @@ map_column, chart_column = st.columns([1.1, 1])
 with map_column:
     st.subheader("研究区范围")
     try:
-        boundary_data = load_boundary(str(BOUNDARY_PATH))
+        boundary_data = load_boundary(
+            str(BOUNDARY_PATH), BOUNDARY_PATH.stat().st_mtime_ns
+        )
         map_boundary = enrich_boundary_with_year_stats(
             boundary_data, subbasin_data, selected_year
         )

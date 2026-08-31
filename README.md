@@ -42,6 +42,18 @@
 
 浏览器打开 `http://127.0.0.1:8501`。页面不会回退到模拟数据；正式 CSV 或边界缺失、字段不完整、版本不一致时会直接显示错误。
 
+## 部署准备
+
+Web运行环境已与GEE数据生产环境分离。精简运行时不安装`earthengine-api`或`geemap`，只读取已晋级的正式数据和瓦片契约，不消耗GEE计算额度。
+
+部署前运行离线预检：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\deployment_preflight.py
+```
+
+容器入口、依赖锁定、健康检查、自动化门禁、性能基线和回滚要求见`docs/deployment.md`。本地现有完整开发环境仍使用`environment/requirements.txt`；新建Web运行环境或部署镜像使用`environment/requirements-web.lock.txt`。
+
 ## WebGIS交互骨架
 
 交互骨架当前已完成栅格瓦片接入契约：
