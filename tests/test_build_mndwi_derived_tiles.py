@@ -5,7 +5,12 @@ import unittest
 import zlib
 from pathlib import Path
 
-from scripts.build_mndwi_derived_tiles import inventory_tiles, read_png_header, sha256_file
+from scripts.build_mndwi_derived_tiles import (
+    expected_tile_coordinates,
+    inventory_tiles,
+    read_png_header,
+    sha256_file,
+)
 
 
 def png_chunk(chunk_type: bytes, payload: bytes) -> bytes:
@@ -40,18 +45,41 @@ class DerivedTileBuildTests(unittest.TestCase):
             )
             self.assertEqual(sha256_file(path), hashlib.sha256(path.read_bytes()).hexdigest())
 
-    def test_inventory_requires_all_contract_zooms_and_is_deterministic(self) -> None:
+    def test_expected_contract_coordinates_cover_3950_tiles(self) -> None:
+        coordinates = expected_tile_coordinates()
+        counts = {
+            zoom: sum(coordinate[0] == zoom for coordinate in coordinates)
+            for zoom in range(5, 14)
+        }
+        self.assertEqual(
+            counts,
+            {
+                5: 1,
+                6: 1,
+                7: 4,
+                8: 9,
+                9: 20,
+                10: 70,
+                11: 216,
+                12: 748,
+                13: 2881,
+            },
+        )
+        self.assertEqual(len(coordinates), 3950)
+
+    def test_inventory_requires_all_contract_coordinates_and_is_deterministic(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             tile_root = Path(directory)
-            for zoom in range(5, 14):
-                make_rgba_png(tile_root / str(zoom) / "1" / "2.png")
+            for zoom, x, y in expected_tile_coordinates():
+                make_rgba_png(tile_root / str(zoom) / str(x) / f"{y}.png")
 
             first = inventory_tiles(tile_root)
             second = inventory_tiles(tile_root)
 
             self.assertEqual(first, second)
-            self.assertEqual(first["tile_count"], 9)
-            self.assertEqual(first["counts_by_zoom"], {str(z): 1 for z in range(5, 14)})
+            self.assertEqual(first["tile_count"], 3950)
+            self.assertEqual(first["transparent_tile_count"], 3950)
+            self.assertEqual(first["missing_tile_count"], 0)
             self.assertEqual(len(first["package_sha256"]), 64)
 
     def test_inventory_rejects_wrong_tile_dimensions(self) -> None:
@@ -59,6 +87,16 @@ class DerivedTileBuildTests(unittest.TestCase):
             tile_root = Path(directory)
             make_rgba_png(tile_root / "5" / "1" / "2.png", width=128)
             with self.assertRaisesRegex(ValueError, "256像素"):
+                inventory_tiles(tile_root)
+
+    def test_inventory_rejects_missing_contract_coordinate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tile_root = Path(directory)
+            coordinates = expected_tile_coordinates()
+            missing = min(coordinates)
+            for zoom, x, y in coordinates - {missing}:
+                make_rgba_png(tile_root / str(zoom) / str(x) / f"{y}.png")
+            with self.assertRaisesRegex(ValueError, "缺少1个"):
                 inventory_tiles(tile_root)
 
 

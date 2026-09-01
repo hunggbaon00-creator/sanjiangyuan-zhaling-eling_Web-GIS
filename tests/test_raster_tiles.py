@@ -115,6 +115,16 @@ class RasterTileContractTests(unittest.TestCase):
         self.assertEqual(options["opacity"], 0.6)
         self.assertEqual(options["min_zoom"], 5)
         self.assertEqual(options["max_zoom"], 13)
+        self.assertEqual(
+            options["bounds"],
+            [
+                [33.94583428316831, 95.90833420357303],
+                [35.47535499778, 98.82083175391062],
+            ],
+        )
+        self.assertTrue(options["no_wrap"])
+        self.assertEqual(options["keep_buffer"], 0)
+        self.assertTrue(options["update_when_idle"])
         self.assertTrue(options["tiles"].startswith("https://"))
 
     def test_nonready_asset_produces_no_tile_options(self) -> None:

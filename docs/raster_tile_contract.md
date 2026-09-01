@@ -90,11 +90,13 @@ not_generated → processing → ready
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build_mndwi_derived_tiles.py `
-  --input "C:\path\to\zhaling_eling_mndwi_2024_hybas6_v1_t000_pilot.tif"
+  --input "data\raw\gee_exports\hybas6_v1_t000\2024\zhaling_eling_mndwi_2024_hybas6_v1_t000_pilot.tif"
 ```
 
-构建入口先校验固定来源SHA-256，再生成水体掩膜和有效观测掩膜二值COG，并输出z5—13的透明RGBA PNG XYZ瓦片。水体规则为`MNDWI > 0.0`，有效观测规则为`MNDWI != -9999`；二值COG中的0作为NoData，瓦片中的背景完全透明。
+不可变来源COG保存在上述`data/raw/gee_exports/`路径，不纳入版本库；固定SHA-256为`60bbab4f520443df43931ba1ac3589fe116e497fa1db622cf893cc85b8711e47`。构建入口先校验该值，再生成水体掩膜和有效观测掩膜二值COG，并输出z5—13的透明RGBA PNG XYZ瓦片。水体规则为`MNDWI > 0.0`，有效观测规则为`MNDWI != -9999`；二值COG中的0作为NoData，瓦片中的背景完全透明。
 
-默认候选目录为`data/processed/candidates/raster_tiles/hybas6_v1_t000/2024/`，其中包含两套瓦片、两个二值来源COG和`candidate_manifest.json`。该目录不纳入版本库，也不能作为页面正式地址；稳定HTTPS发布与浏览器性能验收完成前，资产保持`processing`。
+默认候选目录为`data/processed/candidates/raster_tiles/hybas6_v1_t000/2024/`，其中包含两套瓦片、两个二值来源COG和`candidate_manifest.json`。每层严格覆盖正式边界对应的3,950个z/x/y坐标；全透明位置也必须生成PNG，禁止通过省略文件产生404。页面适配器同时通过`bounds`、`noWrap`、`keepBuffer=0`和`updateWhenIdle`限制请求范围。
+
+2026年9月1日本地浏览器复验覆盖两层、z5—13、透明度、图层切换及扎陵湖、鄂陵湖、研究区东西部平移。共观察522次瓦片请求，其中382次返回200、140次命中缓存返回304、404为0；最高P95为30.4 ms，未发现接缝、错位、闪烁或控制台错误。该目录不纳入版本库，也不能作为页面正式地址；稳定HTTPS发布完成前，资产保持`processing`。
 
 当前2024年MNDWI、水体掩膜和有效观测掩膜三个资产标记为`processing`，其余32个图层年份资产保持`not_generated`。页面只展示处理状态，不产生这些资产的栅格瓦片请求。

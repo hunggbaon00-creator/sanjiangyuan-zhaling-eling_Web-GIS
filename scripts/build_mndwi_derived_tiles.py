@@ -12,8 +12,11 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
+from math import asinh, floor, pi, radians, tan
 from pathlib import Path
 from typing import Any
+
+from PIL import Image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +28,12 @@ EXPECTED_SOURCE_SHA256 = (
 EXPECTED_VALID_PIXEL_COUNT = 86_113_134
 MIN_ZOOM = 5
 MAX_ZOOM = 13
+EXPECTED_BOUNDS = (
+    95.90833420357303,
+    33.94583428316831,
+    98.82083175391062,
+    35.47535499778,
+)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -56,18 +65,51 @@ def read_png_header(path: Path) -> dict[str, int]:
     }
 
 
-def inventory_tiles(tile_root: Path) -> dict[str, Any]:
+def expected_tile_coordinates(
+    bounds: tuple[float, float, float, float] = EXPECTED_BOUNDS,
+) -> set[tuple[int, int, int]]:
+    west, south, east, north = bounds
+    coordinates: set[tuple[int, int, int]] = set()
+    for zoom in range(MIN_ZOOM, MAX_ZOOM + 1):
+        tile_count = 2**zoom
+        xmin = floor((west + 180.0) / 360.0 * tile_count)
+        xmax = floor((east + 180.0) / 360.0 * tile_count)
+        ymin = floor(
+            (1.0 - asinh(tan(radians(north))) / pi) / 2.0 * tile_count
+        )
+        ymax = floor(
+            (1.0 - asinh(tan(radians(south))) / pi) / 2.0 * tile_count
+        )
+        coordinates.update(
+            (zoom, x, y)
+            for x in range(xmin, xmax + 1)
+            for y in range(ymin, ymax + 1)
+        )
+    return coordinates
+
+
+def inventory_tiles(
+    tile_root: Path,
+    allowed_colors: set[tuple[int, int, int, int]] | None = None,
+) -> dict[str, Any]:
     files = sorted(tile_root.glob("*/*/*.png"), key=lambda item: item.as_posix())
     if not files:
         raise ValueError(f"未生成PNG瓦片：{tile_root}")
 
     aggregate = hashlib.sha256()
     counts_by_zoom: dict[str, int] = {}
+    actual_coordinates: set[tuple[int, int, int]] = set()
+    transparent_tile_count = 0
     total_bytes = 0
     for path in files:
         relative = path.relative_to(tile_root).as_posix()
         parts = relative.split("/")
-        if len(parts) != 3 or not all(part.isdigit() for part in parts[:2]):
+        if (
+            len(parts) != 3
+            or not all(part.isdigit() for part in parts[:2])
+            or not parts[2].endswith(".png")
+            or not parts[2][:-4].isdigit()
+        ):
             raise ValueError(f"瓦片路径不符合z/x/y.png：{relative}")
         header = read_png_header(path)
         if header != {
@@ -77,21 +119,41 @@ def inventory_tiles(tile_root: Path) -> dict[str, Any]:
             "color_type": 6,
         }:
             raise ValueError(f"瓦片不是256像素8位RGBA PNG：{relative}，{header}")
-        zoom = parts[0]
+        coordinate = (int(parts[0]), int(parts[1]), int(parts[2][:-4]))
+        actual_coordinates.add(coordinate)
+        zoom = str(coordinate[0])
         counts_by_zoom[zoom] = counts_by_zoom.get(zoom, 0) + 1
+        with Image.open(path) as image:
+            colors = image.getcolors(maxcolors=3)
+        if colors is None:
+            raise ValueError(f"瓦片颜色数量超过二值图层限制：{relative}")
+        observed_colors = {color for _, color in colors}
+        if allowed_colors is not None and not observed_colors <= allowed_colors:
+            raise ValueError(f"瓦片包含契约外颜色：{relative}，{observed_colors}")
+        if observed_colors == {(0, 0, 0, 0)}:
+            transparent_tile_count += 1
         tile_hash = sha256_file(path)
         aggregate.update(relative.encode("utf-8"))
         aggregate.update(b"\0")
         aggregate.update(bytes.fromhex(tile_hash))
         total_bytes += path.stat().st_size
 
-    expected_zooms = {str(zoom) for zoom in range(MIN_ZOOM, MAX_ZOOM + 1)}
-    if set(counts_by_zoom) != expected_zooms:
+    expected_coordinates = expected_tile_coordinates()
+    missing_coordinates = expected_coordinates - actual_coordinates
+    unexpected_coordinates = actual_coordinates - expected_coordinates
+    if missing_coordinates or unexpected_coordinates:
         raise ValueError(
-            f"瓦片缩放级别不完整：实际{sorted(counts_by_zoom)}，预期{sorted(expected_zooms)}"
+            "瓦片坐标覆盖不完整："
+            f"缺少{len(missing_coordinates)}个{sorted(missing_coordinates)[:5]}，"
+            f"多出{len(unexpected_coordinates)}个{sorted(unexpected_coordinates)[:5]}"
         )
     return {
+        "coverage_mode": "full_bounds",
         "tile_count": len(files),
+        "expected_tile_count": len(expected_coordinates),
+        "missing_tile_count": 0,
+        "unexpected_tile_count": 0,
+        "transparent_tile_count": transparent_tile_count,
         "counts_by_zoom": dict(sorted(counts_by_zoom.items(), key=lambda item: int(item[0]))),
         "total_bytes": total_bytes,
         "package_sha256": aggregate.hexdigest(),
@@ -271,7 +333,6 @@ def tile_rgba_cog(
             "--xyz",
             "--zoom=5-13",
             "--resampling=near",
-            "--exclude",
             "--processes",
             str(processes),
             "--tiledriver=PNG",
@@ -347,7 +408,17 @@ def build(args: argparse.Namespace) -> Path:
             stats = inspect_binary_mask(binary_cog, qgis_python, env)
             colorize_mask(binary_cog, rgba_cog, color_file, gdaldem, env)
             tile_rgba_cog(rgba_cog, tile_root, qgis_python, args.processes, env)
-            inventory = inventory_tiles(tile_root)
+            inventory = inventory_tiles(
+                tile_root,
+                {
+                    (0, 0, 0, 0),
+                    tuple(
+                        int(spec["color"][index : index + 2], 16)
+                        for index in (1, 3, 5)
+                    )
+                    + (255,),
+                },
+            )
             results[layer_id] = {
                 "status": "candidate",
                 "derivation_rule": spec["rule"],
@@ -390,6 +461,8 @@ def build(args: argparse.Namespace) -> Path:
                 "format": "PNG",
                 "tile_size": 256,
                 "resampling": "nearest",
+                "bounds": list(EXPECTED_BOUNDS),
+                "coverage_mode": "full_bounds",
                 "public_url": None,
             },
             "layers": results,

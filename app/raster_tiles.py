@@ -246,6 +246,13 @@ def build_raster_tile_options(
         "opacity": opacity,
         "min_zoom": manifest.min_zoom,
         "max_zoom": manifest.max_zoom,
+        "bounds": [
+            [manifest.bounds[1], manifest.bounds[0]],
+            [manifest.bounds[3], manifest.bounds[2]],
+        ],
+        "no_wrap": True,
+        "keep_buffer": 0,
+        "update_when_idle": True,
     }
 
 
